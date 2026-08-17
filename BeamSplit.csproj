@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\BeamSplit.ico</ApplicationIcon>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
     <Product>BeamSplit</Product>
     <Description>Local splitscreen for BeamNG.drive</Description>
     <Company>BeamSplit</Company>
@@ -40,6 +40,7 @@
     <EmbeddedResource Include="Resources\EasyHookSvc.exe" LogicalName="BeamSplit.Resources.EasyHookSvc.exe" />
     <EmbeddedResource Include="Resources\ProtoInput-LICENSE.txt" LogicalName="BeamSplit.Resources.ProtoInput-LICENSE.txt" />
     <EmbeddedResource Include="Resources\BeamSplitAudioVE.lua" LogicalName="BeamSplit.Resources.BeamSplitAudioVE.lua" />
+    <EmbeddedResource Include="Resources\BeamSplitAutoJoin.lua" LogicalName="BeamSplit.Resources.BeamSplitAutoJoin.lua" />
   </ItemGroup>
 
   <ItemGroup>

@@ -70,6 +70,26 @@ public static class SelfTest
                 }
                 finally { try { File.Delete(probeZip); } catch { } }
             }
+            var autoJoinHook = BeamMpAutoJoin.ResourceAvailable();
+            W($"  auto-join    : {(autoJoinHook ? "PASS" : "FAIL")} (guest + 127.0.0.1:{ServerConfig.Port(cfg)})");
+            if (!autoJoinHook) throw new InvalidOperationException("BeamMP auto-join hook missing");
+            if (!string.IsNullOrWhiteSpace(cfg.ModZip) && File.Exists(cfg.ModZip))
+            {
+                var probeZip = Path.Combine(Path.GetTempPath(), $"BeamSplit-autojoin-{Guid.NewGuid():N}.zip");
+                try
+                {
+                    File.Copy(cfg.ModZip, probeZip);
+                    const int probePort = 30814;
+                    BeamMpAutoJoin.PatchZip(probeZip, true, probePort);
+                    var installPass = BeamMpAutoJoin.IsPatched(probeZip, probePort);
+                    BeamMpAutoJoin.PatchZip(probeZip, false, probePort);
+                    var removePass = !BeamMpAutoJoin.IsPatched(probeZip, probePort);
+                    W($"  join zip     : {(installPass && removePass ? "PASS" : "FAIL")} (install/remove)");
+                    if (!installPass || !removePass)
+                        throw new InvalidOperationException("BeamMP auto-join zip regression");
+                }
+                finally { try { File.Delete(probeZip); } catch { } }
+            }
             foreach (var device in audioDevices) W($"  device      : {device}");
             if (AudioDevices.LastError != null) W($"  enumeration : {AudioDevices.LastError}");
             W("");

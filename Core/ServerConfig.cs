@@ -62,6 +62,11 @@ public static partial class ServerConfig
 
     public static string AuthKey(AppConfig cfg) => Read(cfg).GetValueOrDefault("AuthKey", "");
 
+    public static int Port(AppConfig cfg) =>
+        int.TryParse(Read(cfg).GetValueOrDefault("Port", "30814"), out var port) && port is > 0 and <= 65535
+            ? port
+            : 30814;
+
     public static bool HasAuthKey(AppConfig cfg) => AuthKey(cfg).Length > 5;
 
     public static bool IsRunning() => Process.GetProcessesByName("BeamMP-Server").Length > 0;

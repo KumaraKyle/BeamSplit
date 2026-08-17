@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.5.1
+
+- BeamMP sessions now guest-login and Direct Connect each instance to BeamSplit's local
+  server automatically, removing the Multiplayer → guest → Direct Connect menu routine.
+- Auto-join uses BeamMP's own Lua API, waits for launcher authentication, retries safely,
+  reads the configured server port, and can be disabled under Settings → Session behaviour.
+
 ## 1.5.0
 
 - Rebuilt the launch film as kinetic light that visualizes the product itself: one beam

@@ -91,6 +91,7 @@ public partial class SettingsPage : UserControl
         ChkProtoInput.IsChecked = c.UseProtoInput;
         ChkWatchdog.IsChecked = c.Watchdog;
         ChkLaunchCinematic.IsChecked = c.LaunchCinematic;
+        ChkAutoJoinBeamMp.IsChecked = c.AutoJoinBeamMp;
         TxtFrameLimit.Text = c.FrameLimit.ToString();
         CbMode.SelectedIndex = c.Mode == "Solo" ? 1 : 0;
 
@@ -206,6 +207,7 @@ public partial class SettingsPage : UserControl
         c.UseProtoInput = ChkProtoInput.IsChecked == true;
         c.Watchdog = ChkWatchdog.IsChecked == true;
         c.LaunchCinematic = ChkLaunchCinematic.IsChecked == true;
+        c.AutoJoinBeamMp = ChkAutoJoinBeamMp.IsChecked == true;
         if (int.TryParse(TxtFrameLimit.Text, out var fps)) c.FrameLimit = Math.Clamp(fps, 30, 240);
         c.Mode = CbMode.SelectedIndex == 1 ? "Solo" : "BeamMP";
 

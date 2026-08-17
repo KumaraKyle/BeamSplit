@@ -158,6 +158,7 @@ public sealed class Launcher(AppState state)
         InputSetup.InstallMatchingMod(cfg, i, log, lockFile: false);
         BeamMpAudioIsolation.PatchClient(cfg, i,
             string.Equals(cfg.AudioMixMode, "LocalVehicle", StringComparison.OrdinalIgnoreCase), log);
+        BeamMpAutoJoin.PatchClient(cfg, i, cfg.AutoJoinBeamMp, log);
     }
 
     private Process? StartBeamMpLauncher(int i, IProgress<string>? log, bool resetLog = false)

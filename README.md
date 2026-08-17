@@ -86,6 +86,12 @@ layout when every game window has been created, tiled and stabilized. The film c
 indefinitely on a cold launch and resolves immediately when the real work finishes. Disable
 it or preview it safely under Settings → Session behaviour.
 
+In BeamMP mode, each instance automatically requests guest login and Direct Connects to
+`127.0.0.1` on the port in `ServerConfig.toml` as soon as its launcher is authenticated.
+There is no Multiplayer/login/Direct Connect menu routine to repeat. Disable **Automatically
+guest-login and join the local BeamMP server** under Settings → Session behaviour if you
+want to choose a different server manually.
+
 **Console** (`Ctrl+\``) — app, server and every instance's logs in one place, with source
 filters, search and **Copy diagnostics**. There's a command bar too:
 `launch 2 · stop · retile · park · assign 0 1 · server start|stop · logs · guard`.

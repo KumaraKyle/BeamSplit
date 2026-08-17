@@ -101,6 +101,7 @@
           <CheckBox x:Name="ChkProtoInput" Content="Proto Input (recommended: focus-independent controller routing)"/>
           <CheckBox x:Name="ChkWatchdog" Content="Legacy focus guard fallback"/>
           <CheckBox x:Name="ChkLaunchCinematic" Content="Play the BeamSplit launch film while instances launch"/>
+          <CheckBox x:Name="ChkAutoJoinBeamMp" Content="Automatically guest-login and join the local BeamMP server"/>
           <Button x:Name="BtnPreviewCinematic" Style="{StaticResource Small}" Content="Preview launch film"
                   HorizontalAlignment="Left" Margin="20,0,0,6"/>
           <StackPanel Orientation="Horizontal" Margin="0,8,0,0">

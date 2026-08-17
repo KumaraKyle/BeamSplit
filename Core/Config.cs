@@ -50,6 +50,7 @@ public sealed class AppConfig
     public int BasePort { get; set; } = 4444;
 
     public string Mode { get; set; } = "BeamMP";   // or "Solo"
+    public bool AutoJoinBeamMp { get; set; } = true;// guest login + local direct connect
     public bool Borderless { get; set; } = true;
     public bool Isolate { get; set; } = true;      // per-instance controller isolation
     public bool UseProtoInput { get; set; } = true;// injected focus-independent controller routing
