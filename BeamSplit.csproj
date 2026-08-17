@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>BeamSplit</AssemblyName>
+    <RootNamespace>BeamSplit</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\BeamSplit.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>BeamSplit</Product>
+    <Description>Local splitscreen for BeamNG.drive</Description>
+    <Company>BeamSplit</Company>
+    <!-- single-file publish: the native proxy must be extractable, since the game
+         loads it by path from its own Bin64 -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- extracted to %LOCALAPPDATA%\BeamSplit\bin at runtime: the game loads the
+         proxy by path from its own Bin64, so it cannot stay inside the bundle -->
+    <EmbeddedResource Include="Resources\xinput1_4.dll" LogicalName="BeamSplit.Resources.xinput1_4.dll" />
+    <EmbeddedResource Include="Resources\dilist.exe" LogicalName="BeamSplit.Resources.dilist.exe" />
+    <EmbeddedResource Include="Resources\ProtoInputLoader64.dll" LogicalName="BeamSplit.Resources.ProtoInputLoader64.dll" />
+    <EmbeddedResource Include="Resources\ProtoInputHooks64.dll" LogicalName="BeamSplit.Resources.ProtoInputHooks64.dll" />
+    <EmbeddedResource Include="Resources\ProtoInputIJ64.exe" LogicalName="BeamSplit.Resources.ProtoInputIJ64.exe" />
+    <EmbeddedResource Include="Resources\ProtoInputIJP64.dll" LogicalName="BeamSplit.Resources.ProtoInputIJP64.dll" />
+    <EmbeddedResource Include="Resources\EasyHook.dll" LogicalName="BeamSplit.Resources.EasyHook.dll" />
+    <EmbeddedResource Include="Resources\EasyHook64.dll" LogicalName="BeamSplit.Resources.EasyHook64.dll" />
+    <EmbeddedResource Include="Resources\EasyHook64Svc.exe" LogicalName="BeamSplit.Resources.EasyHook64Svc.exe" />
+    <EmbeddedResource Include="Resources\EasyHookSvc.exe" LogicalName="BeamSplit.Resources.EasyHookSvc.exe" />
+    <EmbeddedResource Include="Resources\ProtoInput-LICENSE.txt" LogicalName="BeamSplit.Resources.ProtoInput-LICENSE.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.11" />
+  </ItemGroup>
+
+</Project>
+

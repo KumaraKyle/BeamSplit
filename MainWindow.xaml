@@ -1,0 +1,83 @@
+<Window x:Class="BeamSplit.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BeamSplit" Height="780" Width="1180" MinHeight="560" MinWidth="900"
+        Background="{StaticResource Bg}" FontFamily="Segoe UI"
+        TextOptions.TextFormattingMode="Display" WindowStartupLocation="Manual">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="212"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- nav rail -->
+    <Border Grid.Column="0" Background="{StaticResource BgAlt}">
+      <Grid Margin="14,20,14,14">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="6,0,0,26">
+          <Canvas Height="26" Width="70" HorizontalAlignment="Left" Margin="0,0,0,8">
+            <Rectangle Canvas.Left="0"  Canvas.Top="2"  Width="44" Height="8" RadiusX="3" RadiusY="3" Fill="{StaticResource Accent}"/>
+            <Rectangle Canvas.Left="12" Canvas.Top="14" Width="44" Height="8" RadiusX="3" RadiusY="3" Fill="#3B4252"/>
+          </Canvas>
+          <TextBlock Text="BeamSplit" FontSize="19" FontWeight="Bold"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1">
+          <RadioButton x:Name="NavSetup"    Style="{StaticResource NavItem}" Content="Play"     GroupName="nav" IsChecked="True"/>
+          <RadioButton x:Name="NavScreens"  Style="{StaticResource NavItem}" Content="Screens"  GroupName="nav"/>
+          <RadioButton x:Name="NavServer"   Style="{StaticResource NavItem}" Content="Server"   GroupName="nav"/>
+          <RadioButton x:Name="NavSession"  Style="{StaticResource NavItem}" Content="Session"  GroupName="nav"/>
+          <RadioButton x:Name="NavSettings" Style="{StaticResource NavItem}" Content="Settings" GroupName="nav"/>
+        </StackPanel>
+
+        <!-- live status -->
+        <StackPanel Grid.Row="2" Margin="6,0,0,0">
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+            <Ellipse x:Name="DotServer" Width="8" Height="8" Fill="{StaticResource Faint}" Margin="0,0,8,0"/>
+            <TextBlock x:Name="LblServer" Text="server offline" FontSize="11.5" Foreground="{StaticResource Muted}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+            <Ellipse x:Name="DotGames" Width="8" Height="8" Fill="{StaticResource Faint}" Margin="0,0,8,0"/>
+            <TextBlock x:Name="LblGames" Text="0 instances" FontSize="11.5" Foreground="{StaticResource Muted}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <Ellipse x:Name="DotFocus" Width="8" Height="8" Fill="{StaticResource Faint}" Margin="0,0,8,0"/>
+            <TextBlock x:Name="LblFocus" Text="focus guard off" FontSize="11.5" Foreground="{StaticResource Muted}"/>
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- content + console -->
+    <Grid Grid.Column="1">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*" MinHeight="200"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <ContentControl x:Name="PageHost" Grid.Row="0" Margin="26,24,26,10">
+        <ContentControl.RenderTransform>
+          <TranslateTransform/>
+        </ContentControl.RenderTransform>
+      </ContentControl>
+
+      <Border Grid.Row="1" Background="{StaticResource BgAlt}" Padding="16,8">
+        <Grid>
+          <TextBlock x:Name="LblStatus" Text="Ready." FontSize="12" Foreground="{StaticResource Muted}"
+                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,140,0"/>
+          <Button x:Name="BtnConsole" Style="{StaticResource Small}" Content="Console  Ctrl+`"
+                  HorizontalAlignment="Right" Background="Transparent"/>
+        </Grid>
+      </Border>
+
+      <!-- console panel is filled in at step 7 -->
+      <Border Grid.Row="2" x:Name="ConsoleHost" Background="#0B0D12" Height="0" Visibility="Collapsed"/>
+    </Grid>
+  </Grid>
+</Window>

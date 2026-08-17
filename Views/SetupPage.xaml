@@ -1,0 +1,61 @@
+<UserControl x:Class="BeamSplit.Views.SetupPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel>
+
+      <Border Style="{StaticResource CardStyle}" BorderBrush="{StaticResource Accent}" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Style="{StaticResource H1}" Text="Quick Start"/>
+          <TextBlock Style="{StaticResource Sub}" TextWrapping="Wrap"
+                     Text="1. Choose players.  2. BeamSplit checks and repairs setup.  3. All instances launch together, tile automatically, and keep one controller each."/>
+          <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <TextBlock Text="Players" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ComboBox x:Name="CbQuickPlayers" Width="70" SelectedIndex="1" Margin="0,0,12,0">
+              <ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/><ComboBoxItem Content="4"/>
+            </ComboBox>
+            <Button x:Name="BtnQuickLaunch" Style="{StaticResource Primary}" Content="Check setup &amp; launch" Margin="0,0,10,0"/>
+            <Button x:Name="BtnCustomize" Content="Customize screens"/>
+          </StackPanel>
+          <TextBlock x:Name="LblQuickHint" Style="{StaticResource Sub}" Margin="0,12,0,0" TextWrapping="Wrap"
+                     Text="Tip: assign controllers on Screens only if the automatic Pad 0 → P1, Pad 1 → P2 mapping is wrong."/>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource CardStyle}">
+        <StackPanel>
+          <Grid Margin="0,0,0,4">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Detailed setup"/>
+              <TextBlock Style="{StaticResource Sub}"
+                         Text="Everything BeamSplit needs. Green is ready; a red row has a button that fixes it."/>
+            </StackPanel>
+            <TextBlock x:Name="LblSummary" HorizontalAlignment="Right" VerticalAlignment="Top"
+                       FontSize="12" Foreground="{StaticResource Muted}"/>
+          </Grid>
+
+          <ItemsControl x:Name="Items"/>
+
+          <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <Button x:Name="BtnFixAll" Style="{StaticResource Primary}" Content="Fix everything it can" Margin="0,0,10,0"/>
+            <Button x:Name="BtnRecheck" Content="Re-check" Margin="0,0,10,0"/>
+            <Button x:Name="BtnOpenData" Content="Open data folder"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource CardStyle}">
+        <StackPanel>
+          <TextBlock Style="{StaticResource H2}" Text="Setup log" Margin="0,0,0,10"/>
+          <Border Background="#0B0D12" CornerRadius="8" Padding="12" BorderBrush="{StaticResource Line}" BorderThickness="1">
+            <ScrollViewer x:Name="LogScroll" Height="170" VerticalScrollBarVisibility="Auto">
+              <TextBlock x:Name="LogText" FontFamily="Consolas" FontSize="12"
+                         Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

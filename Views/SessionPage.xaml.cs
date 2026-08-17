@@ -1,0 +1,237 @@
+using System.Diagnostics;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Shapes;
+using BeamSplit.Core;
+
+namespace BeamSplit.Views;
+
+public partial class SessionPage : UserControl
+{
+    private readonly AppState _state = AppState.Current;
+    private readonly SessionMonitor _monitor;
+    private readonly Func<int, Task> _launch;
+    private readonly Func<Task> _retile;
+    private readonly Action _stop;
+
+    public SessionPage(SessionMonitor monitor, Func<int, Task> launch, Func<Task> retile, Action stop)
+    {
+        InitializeComponent();
+        _monitor = monitor;
+        _launch = launch;
+        _retile = retile;
+        _stop = stop;
+
+        BtnLaunch.Click += async (_, _) => await _launch(Math.Max(2, _state.Config.Players.Count));
+        BtnRetile.Click += async (_, _) => await _retile();
+        BtnStop.Click += (_, _) => _stop();
+        BtnServerToggle.Click += (_, _) =>
+        {
+            if (ServerConfig.IsRunning()) ServerConfig.Stop();
+            else ServerConfig.Start(_state.Config);
+            _monitor.Refresh();
+        };
+        BtnServerLog.Click += (_, _) =>
+        {
+            var log = ServerConfig.LogPath(_state.Config);
+            if (log != null && File.Exists(log)) Process.Start("explorer.exe", $"/select,\"{log}\"");
+        };
+
+        _monitor.Updated += OnUpdated;
+        Unloaded += (_, _) => _monitor.Updated -= OnUpdated;
+
+        _monitor.Refresh();
+    }
+
+    private void OnUpdated() => Dispatcher.BeginInvoke(Render);
+
+    private void Render()
+    {
+        var machine = SystemStats.Capture();
+        var totalGameMemory = _monitor.Items.Sum(i => i.MemoryMb);
+        var totalGameCpu = _monitor.Items.Sum(i => i.CpuPercent);
+        var running = _monitor.Items.Count(i => i.GamePid != 0);
+        LblCpuLive.Text = $"{totalGameCpu:0}% game load";
+        LblCpuSpec.Text = $"{machine.Cpu}  ·  {machine.Threads} threads";
+        LblMemoryLive.Text = machine.TotalMemoryMb > 0
+            ? $"{machine.UsedMemoryMb / 1024d:0.0}/{machine.TotalMemoryMb / 1024d:0.0} GB"
+            : $"{totalGameMemory} MB in games";
+        LblMemorySpec.Text = $"BeamNG instances use {totalGameMemory:N0} MB";
+        LblGpuLive.Text = machine.Gpu;
+        LblGpuSpec.Text = machine.Os;
+        LblSessionLive.Text = $"{running}/{_monitor.Items.Count} running";
+        LblSessionSpec.Text = $"{_state.Config.Mode}  ·  {machine.Displays}";
+
+        var s = _monitor.Server;
+        var beamMp = _state.Config.Mode == "BeamMP";
+
+        DotServer.Fill = (Brush)FindResource(!beamMp ? "Faint" : s.Running && s.Listening ? "Good" : s.Running ? "Warn" : "Faint");
+        LblServerTitle.Text = beamMp ? "BeamMP server" : "BeamMP server (not used in Solo)";
+        BtnServerToggle.Content = s.Running ? "Stop" : "Start";
+
+        LblServerDetail.Text = !s.Running
+            ? (s.AuthKey ? "offline" : "offline - no AuthKey set, it will refuse to start")
+            : $"port {s.Port} {(s.Listening ? "listening" : "NOT listening")}   -   {System.IO.Path.GetFileName(s.Map.TrimEnd('/'))}   -   up {Format(s.Uptime)}";
+
+        PlayerList.Items.Clear();
+        foreach (var p in s.Players)
+            PlayerList.Items.Add(new TextBlock
+            {
+                Text = "  " + p,
+                FontSize = 11.5,
+                Foreground = (Brush)FindResource("Good")
+            });
+
+        Cards.Items.Clear();
+        foreach (var inst in _monitor.Items) Cards.Items.Add(BuildCard(inst));
+    }
+
+    private static string Format(TimeSpan t) =>
+        t.TotalHours >= 1 ? $"{(int)t.TotalHours}h {t.Minutes}m" : t.TotalMinutes >= 1 ? $"{t.Minutes}m" : $"{t.Seconds}s";
+
+    private UIElement BuildCard(InstanceStatus st)
+    {
+        var brush = st.State switch
+        {
+            InstanceState.Synced or InstanceState.GameRunning => "Good",
+            InstanceState.Error => "Bad",
+            InstanceState.Idle => "Faint",
+            _ => "Warn"
+        };
+
+        var border = new Border
+        {
+            Style = (Style)FindResource("CardStyle"),
+            Padding = new Thickness(16)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var dot = new Ellipse
+        {
+            Width = 10,
+            Height = 10,
+            Margin = new Thickness(0, 5, 12, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+            Fill = (Brush)FindResource(brush)
+        };
+        // pulse while something is still in flight
+        if (st.State is InstanceState.Launching or InstanceState.WaitingForLauncher or InstanceState.Connected or InstanceState.Building)
+        {
+            dot.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.3, TimeSpan.FromMilliseconds(800))
+            {
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase()
+            });
+        }
+        Grid.SetColumn(dot, 0);
+        grid.Children.Add(dot);
+
+        var text = new StackPanel();
+        var head = new StackPanel { Orientation = Orientation.Horizontal };
+        head.Children.Add(new TextBlock { Text = $"Player {st.Index + 1}", Style = (Style)FindResource("H2") });
+        head.Children.Add(new TextBlock
+        {
+            Text = "  " + st.StateText,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Brush)FindResource(brush)
+        });
+        text.Children.Add(head);
+
+        text.Children.Add(new TextBlock
+        {
+            Text = st.Detail,
+            FontSize = 11.5,
+            Foreground = (Brush)FindResource("Muted"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 3, 12, 0)
+        });
+
+        var facts = new List<string>();
+        if (st.Pad >= 0) facts.Add($"pad {st.Pad}");
+        if (!string.IsNullOrEmpty(st.Monitor)) facts.Add(st.Monitor);
+        if (_state.Config.Mode == "BeamMP") facts.Add($"port {st.Port}{(st.PortListening ? "" : " (closed)")}");
+        if (st.GamePid != 0) facts.Add($"pid {st.GamePid}");
+        if (st.GamePid != 0) facts.Add($"CPU {st.CpuPercent:0.0}%");
+        if (st.MemoryMb > 0) facts.Add($"RAM {st.MemoryMb:N0} MB");
+        text.Children.Add(new TextBlock
+        {
+            Text = string.Join("   ·   ", facts),
+            FontSize = 11,
+            Foreground = (Brush)FindResource("Faint"),
+            Margin = new Thickness(0, 5, 0, 0)
+        });
+
+        text.Children.Add(new TextBlock
+        {
+            Text = "BEAMMP  " + st.ModState,
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource(st.ModOk ? "Good" : "Bad"),
+            Margin = new Thickness(0, 7, 0, 0)
+        });
+
+        if (!string.IsNullOrWhiteSpace(st.LastLine) || !string.IsNullOrWhiteSpace(st.LauncherLine))
+        {
+            var logLines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(st.LauncherLine))
+                logLines.Add("MP    " + Trim(st.LauncherLine, 100));
+            if (!string.IsNullOrWhiteSpace(st.LastLine))
+                logLines.Add("GAME  " + Trim(st.LastLine, 100));
+            var logBox = new Border
+            {
+                Background = (Brush)FindResource("Bg"),
+                BorderBrush = (Brush)FindResource("Line"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(8, 5, 8, 5),
+                Margin = new Thickness(0, 7, 12, 0),
+                Child = new TextBlock
+                {
+                    Text = string.Join(Environment.NewLine, logLines),
+                    FontFamily = new FontFamily("Consolas"),
+                    FontSize = 10,
+                    Foreground = (Brush)FindResource("Faint"),
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                }
+            };
+            text.Children.Add(logBox);
+        }
+
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
+        var openLog = new Button { Content = "Log", Style = (Style)FindResource("Small"), Margin = new Thickness(0, 0, 6, 0) };
+        openLog.Click += (_, _) =>
+        {
+            var log = System.IO.Path.Combine(Instances.CurrentProfile(_state.Config, st.Index), "beamng.log");
+            if (File.Exists(log)) Process.Start("explorer.exe", $"/select,\"{log}\"");
+        };
+        actions.Children.Add(openLog);
+
+        var folder = new Button { Content = "Folder", Style = (Style)FindResource("Small") };
+        folder.Click += (_, _) =>
+        {
+            var dir = Instances.InstanceDir(_state.Config, st.Index);
+            if (Directory.Exists(dir)) Process.Start("explorer.exe", dir);
+        };
+        actions.Children.Add(folder);
+
+        Grid.SetColumn(actions, 2);
+        grid.Children.Add(actions);
+
+        border.Child = grid;
+        return border;
+    }
+
+    private static string Trim(string s, int max) => s.Length <= max ? s : s[..max] + "...";
+}

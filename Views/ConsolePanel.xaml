@@ -1,0 +1,45 @@
+<UserControl x:Class="BeamSplit.Views.ConsolePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#0B0D12">
+  <Grid Margin="16,10,16,12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- filters + tools -->
+    <Grid Grid.Row="0" Margin="0,0,0,8">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,320,0">
+        <StackPanel x:Name="Chips" Orientation="Horizontal"/>
+      </ScrollViewer>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <TextBox x:Name="TxtSearch" Width="130" Margin="0,0,8,0" Padding="7,4"
+                 ToolTip="filter (regex supported)"/>
+        <ToggleButton x:Name="BtnLock" Content="Scroll" Margin="0,0,8,0" IsChecked="True"
+                      Background="Transparent" Foreground="#8B93A7" BorderThickness="0" Padding="8,4"
+                      ToolTip="auto-scroll"/>
+        <Button x:Name="BtnCopy" Style="{StaticResource Small}" Content="Copy diagnostics" Margin="0,0,8,0"/>
+        <Button x:Name="BtnClear" Style="{StaticResource Small}" Content="Clear"/>
+      </StackPanel>
+    </Grid>
+
+    <!-- log -->
+    <Border Grid.Row="1" Background="#08090D" CornerRadius="8" BorderBrush="{StaticResource Line}" BorderThickness="1">
+      <ScrollViewer x:Name="Scroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="10,8">
+        <ItemsControl x:Name="Lines"/>
+      </ScrollViewer>
+    </Border>
+
+    <!-- command bar -->
+    <Grid Grid.Row="2" Margin="0,8,0,0">
+      <TextBox x:Name="TxtCmd" Padding="9,6" Margin="0"
+               Background="#10131A" Foreground="{StaticResource Fg}"
+               FontFamily="Consolas"/>
+      <TextBlock x:Name="Hint" IsHitTestVisible="False" Margin="12,0,0,0" VerticalAlignment="Center"
+                 Foreground="#4A5162" FontFamily="Consolas" FontSize="12"
+                 Text="launch 2  |  stop  |  retile  |  park  |  assign 0 1  |  server start|stop  |  logs"/>
+    </Grid>
+  </Grid>
+</UserControl>

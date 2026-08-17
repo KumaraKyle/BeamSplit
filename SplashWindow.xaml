@@ -1,0 +1,42 @@
+<Window x:Class="BeamSplit.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BeamSplit" Height="320" Width="520"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="False" Topmost="True"
+        Opacity="0">
+  <Border CornerRadius="16" Background="#12151C" BorderBrush="#252A34" BorderThickness="1">
+    <Border.Effect>
+      <DropShadowEffect Color="#000000" BlurRadius="34" ShadowDepth="0" Opacity="0.65"/>
+    </Border.Effect>
+    <Grid Margin="34,30">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0">
+        <!-- wordmark: two offset bars, echoing a split screen -->
+        <Canvas Height="46" Width="150" HorizontalAlignment="Left" Margin="0,0,0,14">
+          <Rectangle x:Name="Bar1" Canvas.Left="0" Canvas.Top="6"  Width="86" Height="15" RadiusX="4" RadiusY="4" Fill="#FF7A2F" Opacity="0"/>
+          <Rectangle x:Name="Bar2" Canvas.Left="22" Canvas.Top="26" Width="86" Height="15" RadiusX="4" RadiusY="4" Fill="#3B4252" Opacity="0"/>
+        </Canvas>
+        <TextBlock Text="BeamSplit" FontSize="30" FontWeight="Bold" Foreground="#E6E9EF" FontFamily="Segoe UI"/>
+        <TextBlock Text="Local splitscreen for BeamNG.drive" FontSize="12.5" Foreground="#8B93A7" Margin="0,3,0,0" FontFamily="Segoe UI"/>
+      </StackPanel>
+
+      <StackPanel Grid.Row="2">
+        <TextBlock x:Name="LblStep" Text="Starting..." FontSize="12.5" Foreground="#8B93A7"
+                   Margin="0,0,0,10" FontFamily="Segoe UI" TextTrimming="CharacterEllipsis"/>
+        <!-- indeterminate sweep -->
+        <Border Height="3" CornerRadius="2" Background="#20242E" ClipToBounds="True">
+          <Border x:Name="Sweep" Width="130" Height="3" CornerRadius="2" HorizontalAlignment="Left"
+                  Background="#FF7A2F">
+            <Border.RenderTransform><TranslateTransform x:Name="SweepT" X="-140"/></Border.RenderTransform>
+          </Border>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

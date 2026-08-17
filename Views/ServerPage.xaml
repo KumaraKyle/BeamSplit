@@ -1,0 +1,99 @@
+<UserControl x:Class="BeamSplit.Views.ServerPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel>
+
+      <Border Style="{StaticResource CardStyle}">
+        <StackPanel>
+          <Grid>
+            <StackPanel>
+              <TextBlock Style="{StaticResource H1}" Text="Server"/>
+              <TextBlock Style="{StaticResource Sub}"
+                         Text="Settings for the BeamMP server running on this PC. Only used in shared-world mode."/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+              <Ellipse x:Name="Dot" Width="9" Height="9" Fill="{StaticResource Faint}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+              <TextBlock x:Name="LblState" Text="offline" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Grid>
+
+          <Border x:Name="WarnBox" Background="#2A1E14" BorderBrush="{StaticResource Warn}" BorderThickness="1"
+                  CornerRadius="8" Padding="12" Margin="0,0,0,14" Visibility="Collapsed">
+            <StackPanel>
+              <TextBlock x:Name="LblWarn" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap"/>
+              <Button x:Name="BtnWarnAction" Style="{StaticResource Small}" Content="Fix"
+                      HorizontalAlignment="Left" Margin="0,9,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="22"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+              <TextBlock Style="{StaticResource Lbl}" Text="SERVER NAME"/>
+              <TextBox x:Name="TxtName"/>
+              <TextBlock Style="{StaticResource Lbl}" Text="PORT"/>
+              <TextBox x:Name="TxtPort"/>
+              <TextBlock Style="{StaticResource Lbl}" Text="MAX PLAYERS"/>
+              <TextBox x:Name="TxtMaxPlayers"/>
+              <TextBlock Style="{StaticResource Lbl}" Text="MAX CARS PER PLAYER"/>
+              <TextBox x:Name="TxtMaxCars"/>
+              <TextBlock Style="{StaticResource Lbl}" Text="DESCRIPTION"/>
+              <TextBox x:Name="TxtDesc"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+              <TextBlock Style="{StaticResource Lbl}" Text="MAP"/>
+              <ComboBox x:Name="CbMap">
+                <ComboBoxItem Content="/levels/gridmap_v2/info.json"/>
+                <ComboBoxItem Content="/levels/west_coast_usa/info.json"/>
+                <ComboBoxItem Content="/levels/italy/info.json"/>
+                <ComboBoxItem Content="/levels/johnson_valley/info.json"/>
+                <ComboBoxItem Content="/levels/utah/info.json"/>
+                <ComboBoxItem Content="/levels/small_island/info.json"/>
+                <ComboBoxItem Content="/levels/hirochi_raceway/info.json"/>
+                <ComboBoxItem Content="/levels/east_coast_usa/info.json"/>
+                <ComboBoxItem Content="/levels/derby/info.json"/>
+                <ComboBoxItem Content="/levels/driver_training/info.json"/>
+                <ComboBoxItem Content="/levels/industrial/info.json"/>
+                <ComboBoxItem Content="/levels/jungle_rock_island/info.json"/>
+              </ComboBox>
+
+              <TextBlock Style="{StaticResource Lbl}" Text="AUTH KEY"/>
+              <TextBox x:Name="TxtAuth"/>
+              <TextBlock x:Name="LblAuthHint" Style="{StaticResource Sub}" Margin="0,0,0,8"
+                         Text="Free from keymaster.beammp.com. Required even for a private LAN server."/>
+
+              <CheckBox x:Name="ChkPrivate" Content="Private (not listed publicly)"/>
+              <CheckBox x:Name="ChkGuests" Content="Allow guests"/>
+              <CheckBox x:Name="ChkDebug" Content="Debug logging"/>
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <Button x:Name="BtnSave" Style="{StaticResource Primary}" Content="Save" Margin="0,0,10,0"/>
+            <Button x:Name="BtnStart" Content="Start" Margin="0,0,10,0"/>
+            <Button x:Name="BtnStop" Content="Stop" Margin="0,0,10,0"/>
+            <Button x:Name="BtnKeymaster" Content="Get an AuthKey" Margin="0,0,10,0"/>
+            <Button x:Name="BtnOpen" Content="Open folder"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource CardStyle}">
+        <StackPanel>
+          <TextBlock Style="{StaticResource H2}" Text="Players" Margin="0,0,0,8"/>
+          <ItemsControl x:Name="PlayerList"/>
+          <TextBlock x:Name="LblNoPlayers" Style="{StaticResource Sub}" Margin="0,4,0,0"
+                     Text="Nobody connected."/>
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

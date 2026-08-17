@@ -1,0 +1,247 @@
+using System.IO;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
+
+namespace BeamSplit.Core;
+
+/// <summary>
+/// Per-instance controller isolation. Proto Input is the primary path because its
+/// XInput and fake-focus hooks remain effective when a BeamNG window is clicked.
+/// The older proxy/devreorder path remains available as a fallback.
+/// (confirmed from its loaded module list):
+///
+///   DirectInput (DInput8.dll)          - how it ENUMERATES controllers
+///   XInput (XInput1_4 / XINPUT9_1_0)   - how it READS pad state
+///
+///   1. devreorder's dinput8.dll hides the other pads from enumeration. Keyed by device
+///      instance GUID, because identical controllers report the SAME name and cannot be
+///      told apart any other way.
+///   2. our xinput1_4.dll exposes only the assigned pad, as user index 0, and reports
+///      every other index as not connected. It re-reads its ini once a second, so pads
+///      can be reassigned without restarting the game.
+///
+/// In-game bindings cannot do this at all - BeamNG keeps ONE binding set for the whole
+/// XInput device type, so adding a binding moves every pad's slot at once.
+/// </summary>
+public static class InputSetup
+{
+    private static readonly string[] ProxyNames = ["XInput1_4.dll", "XINPUT9_1_0.dll"];
+
+    /// <summary>
+    /// DirectInput controllers to hide, preferring a live scan but falling back to the
+    /// remembered list.
+    ///
+    /// This fallback is important: wireless pads idle out and disappear from
+    /// enumeration, and without GUIDs the DirectInput layer gets skipped entirely. An
+    /// instance with no devreorder responds to EVERY pad as soon as its window has
+    /// focus, because DirectInput is foreground-only and unfiltered.
+    /// </summary>
+    public static List<(int Index, string Guid, string Name)> ResolvePads(AppConfig cfg, IProgress<string>? log = null)
+    {
+        var live = NativeAssets.ListDirectInputPads();
+
+        if (live.Count > 0)
+        {
+            // remember them for next time
+            cfg.KnownPads = live
+                .Select(p => new CachedPad { Index = p.Index, Guid = p.Guid, Name = p.Name })
+                .ToList();
+            ConfigStore.Save(cfg);
+            return live;
+        }
+
+        if (cfg.KnownPads.Count > 0)
+        {
+            log?.Report($"  pads asleep - using {cfg.KnownPads.Count} remembered device GUID(s) so DirectInput hiding still applies");
+            return cfg.KnownPads.Select(p => (p.Index, p.Guid, p.Name)).ToList();
+        }
+
+        log?.Report("  no controllers seen yet - wake them once so their IDs can be remembered");
+        return [];
+    }
+
+    public static void Deploy(AppConfig cfg, IProgress<string>? log = null)
+    {
+        if (!NativeAssets.Ready) NativeAssets.Extract(log);
+
+        var pads = ResolvePads(cfg, log);
+        var players = Math.Max(1, cfg.Players.Count);
+
+        for (var i = 0; i < players; i++)
+        {
+            if (!Instances.Exists(cfg, i)) continue;
+            var bin = Instances.Bin64(cfg, i);
+            var slot = cfg.Players.ElementAtOrDefault(i);
+            var pad = slot?.Pad ?? i;
+
+            // Proto Input and an app-local XInput proxy must not be stacked.
+            foreach (var n in ProxyNames)
+            {
+                var dest = Path.Combine(bin, n);
+                try
+                {
+                    if (cfg.UseProtoInput) File.Delete(dest);
+                    else File.Copy(NativeAssets.XInputProxy, dest, true);
+                }
+                catch (IOException) { /* instance running: existing copy stays valid */ }
+            }
+
+            var filterIni = Path.Combine(bin, "xinput_filter.ini");
+            if (cfg.UseProtoInput)
+            {
+                try { File.Delete(filterIni); } catch (IOException) { }
+            }
+            else
+            {
+                File.WriteAllText(filterIni, $"[filter]\r\npad={pad}\r\n", new UTF8Encoding(false));
+            }
+
+            // The DirectInput layer is what stops a FOCUSED window taking every pad:
+            // DirectInput is foreground-only, so an unfiltered instance behaves fine
+            // until someone clicks it, then answers to all controllers at once.
+            if (!File.Exists(NativeAssets.Devreorder))
+                log?.Report($"  P{i}: devreorder missing - this instance will take EVERY pad when focused");
+            else if (pads.Count == 0)
+                log?.Report($"  P{i}: no device IDs available - DirectInput hiding skipped");
+
+            if (File.Exists(NativeAssets.Devreorder) && pads.Count > 0)
+            {
+                try { File.Copy(NativeAssets.Devreorder, Path.Combine(bin, "dinput8.dll"), true); }
+                catch (IOException) { }
+
+                var mine = pads.FirstOrDefault(p => p.Index == pad);
+                var sb = new StringBuilder();
+                sb.AppendLine($"; generated by BeamSplit - instance {i} owns pad {pad}");
+                sb.AppendLine("[order]");
+                if (mine.Guid != null) sb.AppendLine($"{{{mine.Guid}}}");
+                sb.AppendLine("[hidden]");
+                foreach (var p in pads.Where(p => p.Index != pad))
+                    sb.AppendLine($"{{{p.Guid}}}");
+                File.WriteAllText(Path.Combine(bin, "devreorder.ini"), sb.ToString(), new UTF8Encoding(false));
+            }
+
+            var missing = Verify(cfg, i);
+            if (missing.Count == 0) log?.Report(cfg.UseProtoInput
+                ? $"  P{i}: pad {pad} assigned to Proto Input"
+                : $"  P{i}: pad {pad} only (legacy proxy)");
+            else log?.Report($"  P{i}: INCOMPLETE - missing {string.Join(", ", missing)}");
+        }
+    }
+
+    /// <summary>
+    /// What an instance should have if isolation is deployed. Half-configured instances
+    /// silently lose pad separation, so this is checked after every deploy rather than
+    /// assumed - the script version left one instance without its proxies for hours.
+    /// </summary>
+    public static List<string> Verify(AppConfig cfg, int i)
+    {
+        var bin = Instances.Bin64(cfg, i);
+        var missing = new List<string>();
+        if (!cfg.UseProtoInput)
+        {
+            foreach (var n in ProxyNames)
+                if (!File.Exists(Path.Combine(bin, n))) missing.Add(n);
+            if (!File.Exists(Path.Combine(bin, "xinput_filter.ini"))) missing.Add("xinput_filter.ini");
+        }
+
+        // Only flag the DirectInput layer when we actually shipped devreorder - but do
+        // flag it, because its absence is precisely what makes a focused instance grab
+        // every controller.
+        if (File.Exists(NativeAssets.Devreorder))
+        {
+            if (!File.Exists(Path.Combine(bin, "dinput8.dll"))) missing.Add("dinput8.dll");
+            if (!File.Exists(Path.Combine(bin, "devreorder.ini"))) missing.Add("devreorder.ini");
+        }
+        return missing;
+    }
+
+    /// <summary>
+    /// Live pad reassignment: the proxy re-reads this file about once a second, so this
+    /// takes effect without relaunching.
+    /// </summary>
+    public static bool SetPad(AppConfig cfg, int instance, int pad)
+    {
+        if (cfg.UseProtoInput && ProtoInput.SetPad(instance, pad)) return true;
+        var bin = Instances.Bin64(cfg, instance);
+        if (!Directory.Exists(bin)) return false;
+        File.WriteAllText(Path.Combine(bin, "xinput_filter.ini"),
+            $"[filter]\r\npad={pad}\r\n", new UTF8Encoding(false));
+        return !cfg.UseProtoInput;
+    }
+
+    /// <summary>
+    /// Installs the version-matched BeamMP client into an instance.
+    ///
+    /// The launcher re-downloads the LATEST client on every start, which on an older
+    /// BeamNG deactivates itself and leaves you with no Multiplayer button. The normal
+    /// launch path lets the launcher finish first, then overwrites the zip before
+    /// BeamNG starts. The optional lock remains for diagnostics/back-compat.
+    /// </summary>
+    public static void InstallMatchingMod(AppConfig cfg, int i, IProgress<string>? log = null, bool lockFile = true)
+    {
+        if (string.IsNullOrWhiteSpace(cfg.ModZip) || !File.Exists(cfg.ModZip)) return;
+
+        var dest = Path.Combine(Instances.CurrentProfile(cfg, i), "mods", "multiplayer", "BeamMP.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+
+        Unlock(dest);
+
+        var same = File.Exists(dest) && new FileInfo(dest).Length == new FileInfo(cfg.ModZip).Length
+                   && BeamMpCatalog.ModTargetVersion(dest) == BeamMpCatalog.ModTargetVersion(cfg.ModZip);
+        if (!same)
+        {
+            try
+            {
+                File.Copy(cfg.ModZip, dest, true);
+                log?.Report($"  P{i}: installed {Path.GetFileName(cfg.ModZip)}");
+            }
+            catch (Exception ex) { log?.Report($"  P{i}: mod copy failed - {ex.Message}"); return; }
+        }
+
+        if (lockFile)
+        {
+            // ALWAYS re-lock, including when the file was already correct. Unlocking to
+            // compare and then returning early once left it writable, and the launcher
+            // immediately replaced it with the wrong version.
+            Lock(dest);
+        }
+    }
+
+    public static void UnlockMatchingMod(AppConfig cfg, int i)
+    {
+        var dest = Path.Combine(Instances.CurrentProfile(cfg, i), "mods", "multiplayer", "BeamMP.zip");
+        Unlock(dest);
+    }
+
+    private static void Unlock(string path)
+    {
+        if (!File.Exists(path)) return;
+        try
+        {
+            var fi = new FileInfo(path);
+            var sec = fi.GetAccessControl();
+            var user = WindowsIdentity.GetCurrent().Name;
+            foreach (FileSystemAccessRule rule in sec.GetAccessRules(true, false, typeof(NTAccount)))
+                if (rule.AccessControlType == AccessControlType.Deny)
+                    sec.RemoveAccessRule(rule);
+            fi.SetAccessControl(sec);
+            File.SetAttributes(path, FileAttributes.Normal);
+        }
+        catch { }
+    }
+
+    private static void Lock(string path)
+    {
+        try
+        {
+            File.SetAttributes(path, FileAttributes.ReadOnly);
+            var fi = new FileInfo(path);
+            var sec = fi.GetAccessControl();
+            sec.AddAccessRule(new FileSystemAccessRule(
+                WindowsIdentity.GetCurrent().Name, FileSystemRights.Write, AccessControlType.Deny));
+            fi.SetAccessControl(sec);
+        }
+        catch { }
+    }
+}
