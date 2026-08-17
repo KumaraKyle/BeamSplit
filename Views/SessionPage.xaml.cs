@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
@@ -54,21 +55,29 @@ public partial class SessionPage : UserControl
         var totalGameMemory = _monitor.Items.Sum(i => i.MemoryMb);
         var totalGameCpu = _monitor.Items.Sum(i => i.CpuPercent);
         var running = _monitor.Items.Count(i => i.GamePid != 0);
-        LblCpuLive.Text = $"{totalGameCpu:0}% game load";
-        LblCpuSpec.Text = $"{machine.Cpu}  ·  {machine.Threads} threads";
-        LblMemoryLive.Text = machine.TotalMemoryMb > 0
-            ? $"{machine.UsedMemoryMb / 1024d:0.0}/{machine.TotalMemoryMb / 1024d:0.0} GB"
-            : $"{totalGameMemory} MB in games";
-        LblMemorySpec.Text = $"BeamNG instances use {totalGameMemory:N0} MB";
-        LblGpuLive.Text = machine.Gpu;
-        LblGpuSpec.Text = machine.Os;
-        LblSessionLive.Text = $"{running}/{_monitor.Items.Count} running";
-        LblSessionSpec.Text = $"{_state.Config.Mode}  ·  {machine.Displays}";
+        var ready = _monitor.Items.Count(i => i.State is InstanceState.Synced or InstanceState.GameRunning);
+        var count = Math.Max(1, _monitor.Items.Count);
+        var memoryPercent = machine.TotalMemoryMb > 0 ? machine.UsedMemoryMb * 100d / machine.TotalMemoryMb : 0;
+        GaugeCpu.Value = machine.SystemLoadPercent;
+        GaugeCpu.ValueText = $"{machine.SystemLoadPercent:0}%";
+        GaugeRam.Value = memoryPercent;
+        GaugeRam.ValueText = machine.TotalMemoryMb > 0 ? $"{machine.UsedMemoryMb / 1024d:0.0}G" : $"{totalGameMemory / 1024d:0.0}G";
+        LblInstancesValue.Text = $"{running} / {count}";
+        LblInstancesDetail.Text = running == count ? "All configured game windows are running." : $"{count - running} instance(s) waiting.";
+        LblSyncValue.Text = $"{ready} / {count}";
+        LblSyncDetail.Text = ready == count ? "Every running driver is ready." : "Waiting for game or BeamMP synchronization.";
+        LblDashClock.Text = DateTime.Now.ToString("HH:mm:ss");
+        LblMachineStrip.Text = $"{machine.Cpu}  ·  {machine.Threads} threads  ·  {machine.Gpu}";
+        var displayCount = Native.GetMonitors().Count;
+        LblDisplayStrip.Text = $"Games {totalGameCpu:0}% CPU  ·  {totalGameMemory:N0} MB RAM  ·  {displayCount} display{(displayCount == 1 ? "" : "s")}";
 
         var s = _monitor.Server;
         var beamMp = _state.Config.Mode == "BeamMP";
 
         DotServer.Fill = (Brush)FindResource(!beamMp ? "Faint" : s.Running && s.Listening ? "Good" : s.Running ? "Warn" : "Faint");
+        SetLamp(LampServer, !beamMp || s.Running && s.Listening, beamMp && s.Running && !s.Listening);
+        SetLamp(LampInput, _state.Config.UseProtoInput && NativeAssets.ProtoInputReady, false);
+        SetLamp(LampWindows, running == count, running > 0 && running < count);
         LblServerTitle.Text = beamMp ? "BeamMP server" : "BeamMP server (not used in Solo)";
         BtnServerToggle.Content = s.Running ? "Stop" : "Start";
 
@@ -87,6 +96,14 @@ public partial class SessionPage : UserControl
 
         Cards.Items.Clear();
         foreach (var inst in _monitor.Items) Cards.Items.Add(BuildCard(inst));
+    }
+
+    private void SetLamp(Border lamp, bool good, bool warning)
+    {
+        var color = good ? Color.FromRgb(28, 104, 66) : warning ? Color.FromRgb(112, 75, 24) : Color.FromRgb(42, 45, 54);
+        lamp.Background = new SolidColorBrush(color);
+        if (lamp.Child is TextBlock text)
+            text.Foreground = (Brush)FindResource(good ? "Good" : warning ? "Warn" : "Faint");
     }
 
     private static string Format(TimeSpan t) =>
@@ -170,6 +187,14 @@ public partial class SessionPage : UserControl
             Margin = new Thickness(0, 5, 0, 0)
         });
 
+        if (st.GamePid != 0)
+        {
+            var meters = new UniformGrid { Columns = 2, Margin = new Thickness(0, 9, 12, 0) };
+            meters.Children.Add(MetricMeter("ENGINE LOAD", st.CpuPercent, 100, $"{st.CpuPercent:0.0}%", (Brush)FindResource("Accent")));
+            meters.Children.Add(MetricMeter("WORKING SET", st.MemoryMb, 6144, $"{st.MemoryMb:N0} MB", new SolidColorBrush(Color.FromRgb(81, 214, 232))));
+            text.Children.Add(meters);
+        }
+
         text.Children.Add(new TextBlock
         {
             Text = "BEAMMP  " + st.ModState,
@@ -231,6 +256,21 @@ public partial class SessionPage : UserControl
 
         border.Child = grid;
         return border;
+    }
+
+    private UIElement MetricMeter(string label, double value, double max, string valueText, Brush color)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 0, 12, 0) };
+        var head = new Grid();
+        head.Children.Add(new TextBlock { Text = label, FontSize = 9, FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Faint") });
+        head.Children.Add(new TextBlock { Text = valueText, FontSize = 10, FontFamily = new FontFamily("Consolas"), Foreground = color, HorizontalAlignment = HorizontalAlignment.Right });
+        panel.Children.Add(head);
+        panel.Children.Add(new ProgressBar
+        {
+            Style = (Style)FindResource("GlowProgress"), Height = 5, Maximum = max,
+            Value = Math.Clamp(value, 0, max), Foreground = color, Margin = new Thickness(0, 4, 0, 0)
+        });
+        return panel;
     }
 
     private static string Trim(string s, int max) => s.Length <= max ? s : s[..max] + "...";

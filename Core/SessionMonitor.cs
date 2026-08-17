@@ -125,13 +125,18 @@ public sealed partial class SessionMonitor
         var launchers = Process.GetProcessesByName("BeamMP-Launcher").ToList();
         var list = new List<InstanceStatus>();
 
-        for (var i = 0; i < Math.Max(1, cfg.Players.Count); i++)
+        var slots = cfg.Players.Count > 0
+            ? cfg.Players
+            : [new PlayerSlot { Index = 0 }];
+        foreach (var slot in slots)
         {
-            var slot = cfg.Players.ElementAtOrDefault(i);
+            // PlayerSlot.Index remains the live identity while a session is running.
+            // The list can legitimately contain only P1 after P0 drops out.
+            var i = slot.Index;
             var st = new InstanceStatus
             {
                 Index = i,
-                Pad = slot?.Pad ?? -1,
+                Pad = slot.Pad,
                 Port = cfg.BasePort + i * 2,
                 Monitor = MonitorLabel(slot, monitors)
             };
@@ -346,10 +351,14 @@ public sealed partial class SessionMonitor
 
         try
         {
-            var wanted = new FileInfo(cfg.ModZip).Length;
-            var actual = new FileInfo(client).Length;
+            var wanted = BeamMpCatalog.ModTargetVersion(cfg.ModZip);
+            var actual = BeamMpCatalog.ModTargetVersion(client);
             if (wanted != actual)
-                return ($"BeamMP client was overwritten ({actual / 1024} KB; expected {wanted / 1024} KB)", false);
+                return ($"BeamMP client targets 0.{actual}.x; expected 0.{wanted}.x", false);
+
+            if (string.Equals(cfg.AudioMixMode, "LocalVehicle", StringComparison.OrdinalIgnoreCase) &&
+                !BeamMpAudioIsolation.IsPatched(client))
+                return ("compatible client installed; remote-audio hook is missing", false);
         }
         catch { }
 

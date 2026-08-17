@@ -10,11 +10,14 @@ public partial class SettingsPage : UserControl
 {
     private readonly AppState _state = AppState.Current;
     private readonly Func<int, Task> _rebuild;
+    private readonly Func<Task> _previewCinematic;
+    private UpdateInfo? _availableUpdate;
 
-    public SettingsPage(Func<int, Task> rebuild)
+    public SettingsPage(Func<int, Task> rebuild, Func<Task> previewCinematic)
     {
         InitializeComponent();
         _rebuild = rebuild;
+        _previewCinematic = previewCinematic;
 
         BtnSave.Click += (_, _) => Save();
         BtnRescanGames.Click += (_, _) => LoadGameRoots();
@@ -35,6 +38,15 @@ public partial class SettingsPage : UserControl
 
         CbGameRoot.SelectionChanged += (_, _) => UpdateHints();
         TxtInstances.TextChanged += (_, _) => UpdateHints();
+        BtnRefreshAudio.Click += (_, _) => LoadAudioDevices();
+        BtnPreviewCinematic.Click += async (_, _) => await _previewCinematic();
+        BtnCheckUpdate.Click += async (_, _) => await CheckForUpdateAsync();
+        BtnInstallUpdate.Click += async (_, _) => await InstallUpdateAsync();
+        BtnOpenRelease.Click += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(_availableUpdate?.ReleaseUrl))
+                Process.Start(new ProcessStartInfo(_availableUpdate.ReleaseUrl) { UseShellExecute = true });
+        };
 
         // --- Steam API emulation (optional, off by default) ---
         BtnBrowseEmu.Click += (_, _) => BrowseFolder("Pick the Goldberg folder containing steam_api64.dll", p =>
@@ -78,8 +90,23 @@ public partial class SettingsPage : UserControl
         ChkIsolate.IsChecked = c.Isolate;
         ChkProtoInput.IsChecked = c.UseProtoInput;
         ChkWatchdog.IsChecked = c.Watchdog;
+        ChkLaunchCinematic.IsChecked = c.LaunchCinematic;
         TxtFrameLimit.Text = c.FrameLimit.ToString();
         CbMode.SelectedIndex = c.Mode == "Solo" ? 1 : 0;
+
+        TxtAudioMaster.Text = c.AudioMaster.ToString();
+        TxtAudioEffects.Text = c.AudioEffects.ToString();
+        TxtAudioMusic.Text = c.AudioMusic.ToString();
+        TxtAudioUi.Text = c.AudioUi.ToString();
+        ChkAudioBackground.IsChecked = c.AudioInBackground;
+        ChkAudioHeadphones.IsChecked = c.AudioStereoHeadphones;
+        CbAudioMix.SelectedIndex = c.AudioMixMode switch
+        {
+            "All" => 1,
+            "P0Only" => 2,
+            _ => 0
+        };
+        LoadAudioDevices();
 
         ChkApplyGfx.IsChecked = c.ApplyGraphics;
         CbAniso.SelectedIndex = c.Aniso switch { 0 => 0, 2 => 1, 4 => 2, 8 => 3, 16 => 4, _ => 2 };
@@ -88,6 +115,12 @@ public partial class SettingsPage : UserControl
 
         ChkSteamEmu.IsChecked = c.UseSteamEmu;
         TxtSteamEmu.Text = c.SteamEmuPath ?? "";
+
+        ChkAutoUpdates.IsChecked = c.AutoUpdateCheck;
+        LblCurrentVersion.Text = $"Portable build {AppUpdater.CurrentVersion.ToString(3)}";
+        LblUpdateStatus.Text = c.LastUpdateCheckUtc == null
+            ? "Ready to check the release channel."
+            : $"Last checked {c.LastUpdateCheckUtc.Value.ToLocalTime():g}.";
 
         UpdateHints();
         UpdateEmuState();
@@ -172,8 +205,26 @@ public partial class SettingsPage : UserControl
         c.Isolate = ChkIsolate.IsChecked == true;
         c.UseProtoInput = ChkProtoInput.IsChecked == true;
         c.Watchdog = ChkWatchdog.IsChecked == true;
+        c.LaunchCinematic = ChkLaunchCinematic.IsChecked == true;
         if (int.TryParse(TxtFrameLimit.Text, out var fps)) c.FrameLimit = Math.Clamp(fps, 30, 240);
         c.Mode = CbMode.SelectedIndex == 1 ? "Solo" : "BeamMP";
+
+        c.AudioMaster = Percent(TxtAudioMaster.Text, c.AudioMaster);
+        c.AudioEffects = Percent(TxtAudioEffects.Text, c.AudioEffects);
+        c.AudioMusic = Percent(TxtAudioMusic.Text, c.AudioMusic);
+        c.AudioUi = Percent(TxtAudioUi.Text, c.AudioUi);
+        c.AudioInBackground = ChkAudioBackground.IsChecked == true;
+        c.AudioStereoHeadphones = ChkAudioHeadphones.IsChecked == true;
+        c.AudioMixMode = CbAudioMix.SelectedIndex switch
+        {
+            1 => "All",
+            2 => "P0Only",
+            _ => "LocalVehicle"
+        };
+        var audioDevice = CbAudioDevice.Text.Trim();
+        c.AudioDevice = audioDevice.Equals("System default", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : Blank(audioDevice);
 
         // Steam emulation: refuse to enable it without a valid folder, rather than
         // silently doing nothing at launch time.
@@ -191,6 +242,7 @@ public partial class SettingsPage : UserControl
         c.Aniso = CbAniso.SelectedIndex switch { 0 => 0, 1 => 2, 2 => 4, 3 => 8, _ => 16 };
         c.AntiAlias = Math.Max(0, CbAA.SelectedIndex);
         c.NoShadows = ChkNoShadows.IsChecked == true;
+        c.AutoUpdateCheck = ChkAutoUpdates.IsChecked == true;
 
         _state.Save();
         _state.Log("Settings saved.");
@@ -198,7 +250,68 @@ public partial class SettingsPage : UserControl
         UpdateHints();
     }
 
+    private async Task CheckForUpdateAsync()
+    {
+        BtnCheckUpdate.IsEnabled = false;
+        BtnInstallUpdate.IsEnabled = false;
+        UpdateProgress.Value = 12;
+        LblUpdateStatus.Text = "Checking the official release channel...";
+        try
+        {
+            _availableUpdate = await AppUpdater.CheckAsync();
+            _state.Config.LastUpdateCheckUtc = DateTime.UtcNow;
+            _state.Save();
+            LblUpdateStatus.Text = _availableUpdate.Status;
+            BtnInstallUpdate.IsEnabled = _availableUpdate.Available;
+            BtnOpenRelease.IsEnabled = !string.IsNullOrWhiteSpace(_availableUpdate.ReleaseUrl);
+            UpdateProgress.Value = _availableUpdate.Available ? 100 : 0;
+        }
+        catch (Exception ex)
+        {
+            LblUpdateStatus.Text = $"Could not check for updates: {ex.Message}";
+            UpdateProgress.Value = 0;
+        }
+        finally { BtnCheckUpdate.IsEnabled = true; }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_availableUpdate is not { Available: true, Latest: not null } update) return;
+        BtnCheckUpdate.IsEnabled = BtnInstallUpdate.IsEnabled = false;
+        LblUpdateStatus.Text = $"Downloading BeamSplit {update.Latest}...";
+        UpdateProgress.Value = 0;
+        try
+        {
+            var progress = new Progress<double>(value => UpdateProgress.Value = value);
+            var staged = await AppUpdater.DownloadAndStageAsync(update, progress);
+            LblUpdateStatus.Text = "Download verified. Restarting into the update...";
+            AppUpdater.ApplyAndRestart(staged, update.Latest);
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            LblUpdateStatus.Text = $"Update stopped safely: {ex.Message}";
+            BtnCheckUpdate.IsEnabled = true;
+            BtnInstallUpdate.IsEnabled = true;
+        }
+    }
+
     private static string? Blank(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static int Percent(string text, int fallback) =>
+        int.TryParse(text, out var value) ? Math.Clamp(value, 0, 100) : fallback;
+
+    private void LoadAudioDevices()
+    {
+        var selected = _state.Config.AudioDevice;
+        CbAudioDevice.Items.Clear();
+        CbAudioDevice.Items.Add("System default");
+        foreach (var name in AudioDevices.GetRenderDeviceNames()) CbAudioDevice.Items.Add(name);
+
+        if (!string.IsNullOrWhiteSpace(selected) && !CbAudioDevice.Items.Contains(selected))
+            CbAudioDevice.Items.Add(selected);
+        CbAudioDevice.Text = string.IsNullOrWhiteSpace(selected) ? "System default" : selected;
+    }
 
     private void ResetProfiles()
     {

@@ -20,7 +20,10 @@ public partial class MainWindow : Window
     private readonly ConsolePanel _console;
 
     private readonly Dictionary<RadioButton, Func<UIElement>> _pages = new();
+    private readonly List<TourStep> _tourSteps = [];
     private RadioButton? _current;
+    private int _tourIndex;
+    private bool _launching;
 
     public MainWindow()
     {
@@ -41,17 +44,44 @@ public partial class MainWindow : Window
         Left = pm.X + Math.Max(0, (pm.Width - Width) / 2);
         Top = pm.Y + Math.Max(0, (pm.Height - Height) / 2);
 
-        _pages[NavSetup] = () => new SetupPage(LaunchAsync, () => NavScreens.IsChecked = true);
+        _pages[NavSetup] = () => new SetupPage(LaunchAsync, RetileRunningAsync,
+            () => NavScreens.IsChecked = true,
+            () => NavServer.IsChecked = true,
+            () => NavSettings.IsChecked = true,
+            StartTour);
         _pages[NavScreens] = () => new ScreensPage(LaunchAsync, RetileRunningAsync);
         _pages[NavServer] = () => new ServerPage();
         _pages[NavSession] = () => new SessionPage(_session,
             LaunchAsync,
             RetileRunningAsync,
             () => { _launcher.StopAll(_state.Progress()); _focus.Stop(); });
-        _pages[NavSettings] = () => new SettingsPage(RebuildAsync);
+        _pages[NavSettings] = () => new SettingsPage(RebuildAsync,
+            () => PlayCinematicAsync(Math.Max(1, _state.Config.Players.Count)));
 
         foreach (var nav in _pages.Keys)
             nav.Checked += (s, _) => Navigate((RadioButton)s!);
+
+        _tourSteps.AddRange([
+            new TourStep(NavSetup, "01 · READY ROOM", "Launch without the tab marathon",
+                "Play now contains both the guided first-time setup and the normal quick launcher. Pick BeamMP or Solo, choose the player count, repair readiness issues, arrange screens and launch without changing pages.",
+                "Use Setup guide inside Play whenever the rig changes; Quick play remains one click away."),
+            new TourStep(NavScreens, "02 · CREW CHIEF", "Put every driver in their seat",
+                "Screens maps the real Windows display layout. Split a panel, drag player/controller chips into regions, identify pads, and apply routing or placement to a session that is already running.",
+                "Display names—not discovery order—are saved, so unplugging a monitor cannot silently swap player identities."),
+            new TourStep(NavServer, "03 · PIT LANE", "Own the shared world",
+                "Server holds the local BeamMP race rules: AuthKey, map, player and vehicle limits, port, privacy and server identity. Solo drivers can ignore this entire page.",
+                "The server still needs a free BeamMP AuthKey even when every player is on this one PC."),
+            new TourStep(NavSession, "04 · INSTRUMENT CLUSTER", "Read the rig like a dashboard",
+                "Session is the live process monitor. Its only dials are actual system load and RAM; running instances and world sync use clearer status cards. Each driver card exposes state, port, pad, PID, memory, load, mod health and the latest launcher/game signal.",
+                "Connected and synced are different: a car can reach its launcher before it has actually appeared in the shared world."),
+            new TourStep(NavSettings, "05 · GARAGE", "Tune once, apply everywhere",
+                "Settings controls installation paths, frame caps, graphics, input, audio perspective, output devices, portable updates and maintenance. BeamSplit writes the chosen runtime values into every profile before launch.",
+                "Local vehicle audio avoids doubled cars on shared speakers. Use All only when each player has a separately routed output.")
+        ]);
+        BtnTour.Click += (_, _) => StartTour();
+        TourOverlay.Next += () => { if (_tourIndex >= _tourSteps.Count - 1) CloseTour(); else ShowTourStep(_tourIndex + 1); };
+        TourOverlay.Back += () => ShowTourStep(_tourIndex - 1);
+        TourOverlay.Close += CloseTour;
 
         BtnConsole.Click += (_, _) => ToggleConsole();
         InputBindings.Add(new KeyBinding(new RelayCommand(ToggleConsole),
@@ -65,11 +95,62 @@ public partial class MainWindow : Window
 
         _logs.Rebuild(_state.Config);
 
-        Loaded += (_, _) => Navigate(NavSetup);
+        Loaded += async (_, _) =>
+        {
+            var initial = NavSetup;
+            initial.IsChecked = true;
+            Navigate(initial);
+            await CheckForUpdatesQuietlyAsync();
+        };
         Closed += (_, _) => { _focus.Stop(); _session.Stop(); _logs.Dispose(); _state.Save(); };
     }
 
     public void SetStatus(string text) => LblStatus.Text = text;
+
+    private void StartTour()
+    {
+        if (_consoleOpen) ToggleConsole();
+        ShowTourStep(0);
+    }
+
+    private void ShowTourStep(int index)
+    {
+        _tourIndex = Math.Clamp(index, 0, _tourSteps.Count - 1);
+        var step = _tourSteps[_tourIndex];
+        step.Nav.IsChecked = true;
+        Dispatcher.BeginInvoke(() => TourOverlay.ShowStep(_tourIndex, _tourSteps.Count,
+            step.Eyebrow, step.Title, step.Body, step.Tip), DispatcherPriority.Loaded);
+    }
+
+    private void CloseTour()
+    {
+        TourOverlay.Visibility = Visibility.Collapsed;
+        _state.Config.AppTourComplete = true;
+        _state.Save();
+    }
+
+    private async Task CheckForUpdatesQuietlyAsync()
+    {
+        var cfg = _state.Config;
+        if (!cfg.AutoUpdateCheck || cfg.LastUpdateCheckUtc is DateTime last &&
+            DateTime.UtcNow - last.ToUniversalTime() < TimeSpan.FromHours(24)) return;
+
+        try
+        {
+            var update = await AppUpdater.CheckAsync();
+            cfg.LastUpdateCheckUtc = DateTime.UtcNow;
+            _state.Save();
+            if (update.Available)
+            {
+                SetStatus($"BeamSplit {update.Latest} is available - open Settings to install it.");
+                _state.Log($"Update available: {update.Latest} (verified GitHub release asset).");
+            }
+        }
+        catch (Exception ex)
+        {
+            _state.Log($"Update check skipped: {ex.Message}");
+        }
+    }
 
     // ------------------------------------------------------------------ status
     private void UpdateStatusDots()
@@ -162,7 +243,7 @@ public partial class MainWindow : Window
                     break;
 
                 case "retile":
-                    await _launcher.TileAsync(_state.Progress());
+                    await _launcher.RetileRunningAsync(_state.Progress());
                     break;
 
                 case "park":
@@ -215,6 +296,7 @@ public partial class MainWindow : Window
 
     public async Task LaunchAsync(int players)
     {
+        if (_launching) { SetStatus("Launch is already in progress."); return; }
         var cfg = _state.Config;
         var blockers = SetupStatus.Blockers(cfg);
         if (blockers.Count > 0)
@@ -231,9 +313,18 @@ public partial class MainWindow : Window
         // Put the live dashboard in front immediately. Launcher output, mod health,
         // ports and resource usage now live here instead of in loose console windows.
         NavSession.IsChecked = true;
+        _launching = true;
         try
         {
-            await _launcher.LaunchAsync(_state.Progress());
+            // Start the actual parallel launch first. The cinematic hides its slowest
+            // early work rather than delaying it; Session telemetry is already alive
+            // underneath and is revealed when the split-screen grid resolves.
+            var launchTask = _launcher.LaunchAsync(_state.Progress());
+            if (cfg.LaunchCinematic)
+            {
+                await PlayCinematicAsync(players, launchTask);
+            }
+            await launchTask;
             _logs.Rebuild(cfg);
             if (cfg.Watchdog && !cfg.UseProtoInput) _focus.Start();
             SetStatus(cfg.UseProtoInput
@@ -245,14 +336,48 @@ public partial class MainWindow : Window
             _state.Log("Launch failed: " + ex.Message);
             SetStatus("Launch failed - see the console.");
         }
+        finally { _launching = false; }
+    }
+
+    private async Task PlayCinematicAsync(int players, Task? launchTask = null)
+    {
+        var previousState = WindowState;
+        var previousStyle = WindowStyle;
+        var previousResize = ResizeMode;
+        var previousTopmost = Topmost;
+        var previousBounds = RestoreBounds;
+        try
+        {
+            // This is a real launch film, not a maximized app page: remove the title
+            // bar and keep it above the game windows that are appearing behind it.
+            WindowState = System.Windows.WindowState.Normal;
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            Topmost = true;
+            WindowState = System.Windows.WindowState.Maximized;
+            Activate();
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            await LaunchOverlay.PlayAsync(players, launchTask);
+        }
+        finally
+        {
+            LaunchOverlay.Abort();
+            Topmost = previousTopmost;
+            WindowStyle = previousStyle;
+            ResizeMode = previousResize;
+            WindowState = previousState;
+            if (previousState == System.Windows.WindowState.Normal && !previousBounds.IsEmpty)
+            {
+                Left = previousBounds.Left;
+                Top = previousBounds.Top;
+                Width = previousBounds.Width;
+                Height = previousBounds.Height;
+            }
+        }
     }
 
     /// <summary>Retile only the game windows that exist right now.</summary>
-    private Task RetileRunningAsync()
-    {
-        _launcher.RetileRunning(_state.Progress());
-        return Task.CompletedTask;
-    }
+    private Task RetileRunningAsync() => _launcher.RetileRunningAsync(_state.Progress());
 
     private static UIElement Placeholder(string title, string sub)
     {
@@ -262,6 +387,8 @@ public partial class MainWindow : Window
         return panel;
     }
 }
+
+internal sealed record TourStep(RadioButton Nav, string Eyebrow, string Title, string Body, string Tip);
 
 /// <summary>Minimal ICommand so a key gesture can invoke a method.</summary>
 public sealed class RelayCommand(Action action) : ICommand

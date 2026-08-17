@@ -1,0 +1,180 @@
+<UserControl x:Class="BeamSplit.Views.GuidePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="190"/>
+      <ColumnDefinition Width="18"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="16">
+      <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel>
+          <Canvas Height="28" Margin="0,0,0,12">
+            <Rectangle Width="54" Height="9" RadiusX="4" RadiusY="4" Fill="{StaticResource Accent}"/>
+            <Rectangle Canvas.Left="15" Canvas.Top="15" Width="54" Height="9" RadiusX="4" RadiusY="4" Fill="#414959"/>
+          </Canvas>
+          <TextBlock Text="First lap" FontSize="19" FontWeight="SemiBold"/>
+          <TextBlock Text="About five minutes." Style="{StaticResource Sub}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" x:Name="StepRail">
+          <Border x:Name="Rail0" Style="{StaticResource Pill}"><TextBlock Text="01  Welcome"/></Border>
+          <Border x:Name="Rail1" Style="{StaticResource Pill}"><TextBlock Text="02  Install check"/></Border>
+          <Border x:Name="Rail2" Style="{StaticResource Pill}"><TextBlock Text="03  Screens"/></Border>
+          <Border x:Name="Rail3" Style="{StaticResource Pill}"><TextBlock Text="04  Session"/></Border>
+          <Border x:Name="Rail4" Style="{StaticResource Pill}"><TextBlock Text="05  Ready"/></Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2">
+          <TextBlock x:Name="LblStep" Text="Step 1 of 5" Style="{StaticResource Lbl}"/>
+          <ProgressBar x:Name="WizardProgress" Style="{StaticResource GlowProgress}" Minimum="0" Maximum="100" Value="20"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="2">
+      <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid x:Name="StepHost" RenderTransformOrigin="0.5,0.5">
+          <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
+
+          <StackPanel x:Name="Step0">
+            <TextBlock Style="{StaticResource H1}" Text="Let’s build your couch-racing rig"/>
+            <TextBlock Style="{StaticResource Sub}" Text="BeamSplit will find the game, prepare isolated profiles, arrange the displays, and explain the handful of rules that matter."/>
+
+            <Border Style="{StaticResource CardStyle}" BorderBrush="{StaticResource Accent}" BorderThickness="1" Padding="24">
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                  <TextBlock Style="{StaticResource Lbl}" Text="SESSION TYPE"/>
+                  <ComboBox x:Name="CbGuideMode">
+                    <ComboBoxItem Content="BeamMP · one shared world"/>
+                    <ComboBoxItem Content="Solo · separate worlds"/>
+                  </ComboBox>
+                  <TextBlock Style="{StaticResource Sub}" Text="BeamMP runs a small local server. Solo skips all server setup."/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Style="{StaticResource Lbl}" Text="PLAYERS"/>
+                  <ComboBox x:Name="CbGuidePlayers">
+                    <ComboBoxItem Content="1 player"/><ComboBoxItem Content="2 players"/>
+                    <ComboBoxItem Content="3 players"/><ComboBoxItem Content="4 players"/>
+                  </ComboBox>
+                  <TextBlock Style="{StaticResource Sub}" Text="You can add, remove, or move players later on Screens."/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <UniformGrid Columns="3">
+              <Border Style="{StaticResource SoftCard}" Margin="0,0,9,0"><StackPanel><TextBlock Text="Separate profiles" FontWeight="SemiBold"/><TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" Text="Settings and controls stay independent."/></StackPanel></Border>
+              <Border Style="{StaticResource SoftCard}" Margin="0,0,9,0"><StackPanel><TextBlock Text="Parallel launch" FontWeight="SemiBold"/><TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" Text="All players start together and tile automatically."/></StackPanel></Border>
+              <Border Style="{StaticResource SoftCard}"><StackPanel><TextBlock Text="Focus-safe input" FontWeight="SemiBold"/><TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" Text="One controller is routed to each process."/></StackPanel></Border>
+            </UniformGrid>
+          </StackPanel>
+
+          <StackPanel x:Name="Step1" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource H1}" Text="Make the machine launch-ready"/>
+            <TextBlock Style="{StaticResource Sub}" Text="Automatic repair finds installs, extracts the input layer, downloads the local server, and pins the BeamMP client to your BeamNG version."/>
+            <Border Style="{StaticResource CardStyle}">
+              <StackPanel>
+              <Grid Margin="0,0,0,12">
+                <StackPanel><TextBlock Text="Readiness" Style="{StaticResource H2}"/><TextBlock x:Name="LblGuideSetup" Style="{StaticResource Sub}" Margin="0,3,0,0"/></StackPanel>
+                <TextBlock x:Name="LblGuidePercent" HorizontalAlignment="Right" FontSize="25" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
+              </Grid>
+              <ProgressBar x:Name="SetupProgress" Style="{StaticResource GlowProgress}" Height="10" Margin="0,0,0,16"/>
+              <ItemsControl x:Name="GuideSetupItems"/>
+              <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <Button x:Name="BtnGuideRepair" Style="{StaticResource Primary}" Content="Repair automatically" Margin="0,0,10,0"/>
+                <Button x:Name="BtnGuideRecheck" Content="Re-check"/>
+              </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel x:Name="Step2" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource H1}" Text="Put every player where they belong"/>
+            <TextBlock Style="{StaticResource Sub}" Text="Pick a starting layout now. The full designer lets you drag controller chips onto exact screen regions and retile a running session."/>
+            <Border Style="{StaticResource CardStyle}">
+              <StackPanel>
+              <TextBlock Style="{StaticResource Lbl}" Text="LAYOUT PRESET"/>
+              <WrapPanel Margin="0,0,0,14">
+                <Button x:Name="BtnLayoutAuto" Content="One per display" Margin="0,0,8,8"/>
+                <Button x:Name="BtnLayoutStacked" Content="Stacked on primary" Margin="0,0,8,8"/>
+                <Button x:Name="BtnLayoutSide" Content="Side by side on primary" Margin="0,0,8,8"/>
+                <Button x:Name="BtnOpenScreens" Style="{StaticResource Primary}" Content="Open full designer" Margin="0,0,8,8"/>
+              </WrapPanel>
+              <WrapPanel x:Name="MonitorPreview"/>
+              <TextBlock x:Name="LblLayout" Style="{StaticResource Sub}" Margin="0,12,0,0"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SoftCard}">
+              <StackPanel>
+              <TextBlock FontWeight="SemiBold" Text="Controller rule"/>
+              <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" Text="A pad can belong to only one player. Keyboard + mouse can be assigned to one player; use the controller tray’s Identify button when pad numbering is unclear."/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel x:Name="Step3" Visibility="Collapsed">
+            <TextBlock Style="{StaticResource H1}" Text="Tune the session, not every window"/>
+            <TextBlock Style="{StaticResource Sub}" Text="These defaults solve the common multi-process problems. You can revisit every value later."/>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource H2}" Text="BeamMP server"/>
+                  <TextBlock x:Name="LblGuideServer" Style="{StaticResource Sub}" Margin="0,4,0,12"/>
+                  <Button x:Name="BtnOpenServer" Content="Open server settings" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </Border>
+              <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource H2}" Text="Audio perspective"/>
+                  <ComboBox x:Name="CbGuideAudio" Margin="0,10,0,7">
+                    <ComboBoxItem Content="Local car per player · recommended"/>
+                    <ComboBoxItem Content="Every instance · separate headsets"/>
+                    <ComboBoxItem Content="P0 only · one listener"/>
+                  </ComboBox>
+                  <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,10" Text="Local mode prevents doubled BeamMP vehicles while both players retain sound."/>
+                  <Button x:Name="BtnOpenSettings" Content="Open all settings" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+            <Border Style="{StaticResource SoftCard}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Important:" Foreground="{StaticResource Warn}" FontWeight="SemiBold" Margin="0,0,7,0"/>
+                <TextBlock Text="Proto Input makes focused windows safe. If you disable it, keep focus parked outside every game window." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel x:Name="Step4" Visibility="Collapsed">
+            <Border Style="{StaticResource CardStyle}" BorderBrush="{StaticResource Good}" BorderThickness="1" Padding="30">
+              <StackPanel HorizontalAlignment="Center" MaxWidth="610">
+                <Grid Width="82" Height="82" Margin="0,4,0,18">
+                  <Ellipse Fill="#173B2A" Stroke="{StaticResource Good}" StrokeThickness="2"/>
+                  <TextBlock Text="✓" FontSize="38" Foreground="{StaticResource Good}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="Rig configured" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="LblReadySummary" Style="{StaticResource Sub}" FontSize="13" TextAlignment="Center" Margin="0,8,0,20"/>
+                <ProgressBar Style="{StaticResource GlowProgress}" Value="100" Width="420" Height="10" Margin="0,0,0,22"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                  <Button x:Name="BtnGuideLaunch" Style="{StaticResource Primary}" Content="Launch the session" Margin="0,0,10,0"/>
+                  <Button x:Name="BtnTourGuide" Content="Tour the cockpit" Margin="0,0,10,0"/>
+                  <Button x:Name="BtnFinishGuide" Content="Finish"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </ScrollViewer>
+
+      <Grid Grid.Row="1" Margin="0,14,0,0">
+        <Button x:Name="BtnGuideBack" Content="Back" HorizontalAlignment="Left"/>
+        <Button x:Name="BtnGuideNext" Style="{StaticResource Primary}" Content="Continue" HorizontalAlignment="Right"/>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

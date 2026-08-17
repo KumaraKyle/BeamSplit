@@ -365,11 +365,14 @@ public partial class ScreensPage : UserControl
                 Background = Brushes.Transparent,
                 Foreground = (Brush)FindResource("Faint")
             };
-            remove.Click += (_, _) =>
+            remove.Click += async (_, _) =>
             {
+                InputSetup.SetPad(_state.Config, slot.Index, -1);
                 _state.Config.Players.Remove(slot);
                 Reindex();
+                _state.Save();
                 Rebuild();
+                await _retile();
             };
             content.Children.Add(remove);
 
@@ -398,12 +401,12 @@ public partial class ScreensPage : UserControl
             e.Effects = e.Data.GetDataPresent(PadFormat) ? DragDropEffects.Move : DragDropEffects.None;
             e.Handled = true;
         };
-        cell.Drop += (_, e) =>
+        cell.Drop += async (_, e) =>
         {
             if (!e.Data.GetDataPresent(PadFormat)) return;
             var pad = (int)e.Data.GetData(PadFormat)!;
-            Assign(mon, split, region, pad);
             e.Handled = true;
+            await AssignAsync(mon, split, region, pad);
         };
 
         return cell;
@@ -422,7 +425,9 @@ public partial class ScreensPage : UserControl
         foreach (var p in onThis)
         {
             p.Split = mode;
-            if (p.Region >= Tiling.Capacity(mode)) players.Remove(p);
+            if (p.Region < Tiling.Capacity(mode)) continue;
+            InputSetup.SetPad(_state.Config, p.Index, -1);
+            players.Remove(p);
         }
         Reindex();
         _state.Save();
@@ -430,33 +435,44 @@ public partial class ScreensPage : UserControl
         await _retile();
     }
 
-    private void Assign(MonitorInfo mon, SplitMode split, int region, int pad)
+    private async Task AssignAsync(MonitorInfo mon, SplitMode split, int region, int pad)
     {
         var players = _state.Config.Players;
+        var keyboard = pad == KeyboardPad;
+        var target = players.FirstOrDefault(p =>
+            p.MonitorDevice == mon.DeviceName && p.Region == region && p.Split == split);
 
         // a device can only drive one instance
-        players.RemoveAll(p => p.Pad == pad && p.Keyboard == (pad == KeyboardPad));
+        var displaced = players.Where(p => p != target && p.Pad == pad && p.Keyboard == keyboard).ToList();
+        if (keyboard) displaced.AddRange(players.Where(p => p != target && p.Keyboard && !displaced.Contains(p)));
+        foreach (var old in displaced)
+        {
+            InputSetup.SetPad(_state.Config, old.Index, -1);
+            players.Remove(old);
+        }
 
-        var keyboard = pad == KeyboardPad;
-        // only one keyboard player makes sense - there is one keyboard
-        if (keyboard) players.RemoveAll(p => p.Keyboard);
-
-        var existing = players.FirstOrDefault(p => p.MonitorDevice == mon.DeviceName && p.Region == region && p.Split == split);
-        if (existing != null) { existing.Pad = pad; existing.Keyboard = keyboard; }
+        if (target != null) { target.Pad = pad; target.Keyboard = keyboard; }
         else
-            players.Add(new PlayerSlot
+        {
+            target = new PlayerSlot
             {
+                Index = HasRunningSession() ? NextFreeInstance(players) : players.Count,
                 MonitorDevice = mon.DeviceName,
                 Split = split,
                 Region = region,
                 Pad = pad,
                 Keyboard = keyboard
-            });
+            };
+            players.Add(target);
+        }
 
         Reindex();
         _state.Save();
         Rebuild();
-        _state.Log($"Player {players.FindIndex(p => p.Pad == pad) + 1}: {(keyboard ? "keyboard & mouse" : $"pad {pad}")} on {mon.DeviceName.Replace(@"\\.\", "")}");
+        var live = InputSetup.SetPad(_state.Config, target.Index, pad);
+        _state.Log($"P{target.Index}: {(keyboard ? "keyboard & mouse" : $"pad {pad}")} on {mon.DeviceName.Replace(@"\\.\", "")}" +
+                   (live ? " (applied live)" : " (saved; relaunch needed for this older session)"));
+        await _retile();
     }
 
     /// <summary>
@@ -475,8 +491,23 @@ public partial class ScreensPage : UserControl
             .ThenBy(p => p.Region)
             .ToList();
 
-        for (var i = 0; i < sorted.Count; i++) sorted[i].Index = i;
+        // While games are alive, Index is the identity of the instance folder,
+        // process and Proto Input handle. Compacting P1 to P0 when P0 is removed
+        // severs all three live mappings. Only normalize indexes while no session is
+        // running; LaunchAsync also creates a fresh contiguous assignment next time.
+        if (!HasRunningSession())
+            for (var i = 0; i < sorted.Count; i++) sorted[i].Index = i;
         _state.Config.Players = sorted;
+    }
+
+    private static bool HasRunningSession() => Tiling.GameWindows().Count > 0;
+
+    private static int NextFreeInstance(IEnumerable<PlayerSlot> players)
+    {
+        var used = players.Select(p => p.Index).ToHashSet();
+        var index = 0;
+        while (used.Contains(index)) index++;
+        return index;
     }
 
     private void Commit()
@@ -496,7 +527,7 @@ public partial class ScreensPage : UserControl
         var saved = 0;
         foreach (var p in _state.Config.Players)
         {
-            if (p.Pad < 0 || !Instances.Exists(_state.Config, p.Index)) continue;
+            if (!Instances.Exists(_state.Config, p.Index)) continue;
             if (InputSetup.SetPad(_state.Config, p.Index, p.Pad)) n++;
             else saved++;
         }

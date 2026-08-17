@@ -1,25 +1,74 @@
 <UserControl x:Class="BeamSplit.Views.SetupPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+    <Border Grid.Row="0" Background="#10131A" BorderBrush="{StaticResource Line}" BorderThickness="1"
+            CornerRadius="10" Padding="14,10" Margin="0,0,0,12">
+      <Grid>
+        <StackPanel>
+          <TextBlock Text="Play" FontSize="21" FontWeight="SemiBold"/>
+          <TextBlock Text="Launch normally or walk through setup without leaving this workspace."
+                     Foreground="{StaticResource Muted}" FontSize="11.5"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Button x:Name="BtnPlayView" Content="Quick play" Style="{StaticResource Small}" Margin="0,0,8,0"/>
+          <Button x:Name="BtnGuideView" Content="Setup guide" Style="{StaticResource Small}"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+  <ScrollViewer x:Name="QuickPlayView" Grid.Row="1" VerticalScrollBarVisibility="Auto">
     <StackPanel>
 
-      <Border Style="{StaticResource CardStyle}" BorderBrush="{StaticResource Accent}" BorderThickness="1">
-        <StackPanel>
-          <TextBlock Style="{StaticResource H1}" Text="Quick Start"/>
-          <TextBlock Style="{StaticResource Sub}" TextWrapping="Wrap"
-                     Text="1. Choose players.  2. BeamSplit checks and repairs setup.  3. All instances launch together, tile automatically, and keep one controller each."/>
-          <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-            <TextBlock Text="Players" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <ComboBox x:Name="CbQuickPlayers" Width="70" SelectedIndex="1" Margin="0,0,12,0">
-              <ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/><ComboBoxItem Content="4"/>
-            </ComboBox>
-            <Button x:Name="BtnQuickLaunch" Style="{StaticResource Primary}" Content="Check setup &amp; launch" Margin="0,0,10,0"/>
-            <Button x:Name="BtnCustomize" Content="Customize screens"/>
-          </StackPanel>
-          <TextBlock x:Name="LblQuickHint" Style="{StaticResource Sub}" Margin="0,12,0,0" TextWrapping="Wrap"
-                     Text="Tip: assign controllers on Screens only if the automatic Pad 0 → P1, Pad 1 → P2 mapping is wrong."/>
-        </StackPanel>
+      <Border Style="{StaticResource CardStyle}" BorderBrush="{StaticResource Accent}" BorderThickness="1" Padding="0" ClipToBounds="True">
+        <Grid>
+          <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Color="#241B17" Offset="0"/><GradientStop Color="#171A21" Offset="0.58"/><GradientStop Color="#151B25" Offset="1"/>
+            </LinearGradientBrush>
+          </Grid.Background>
+          <Ellipse Width="260" Height="260" Fill="#18FF7A2F" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-130,-70,0">
+            <Ellipse.Effect><BlurEffect Radius="28"/></Ellipse.Effect>
+          </Ellipse>
+          <Grid Margin="24">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/><ColumnDefinition Width="270"/></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+              <WrapPanel>
+                <Border Style="{StaticResource Pill}" Background="#40261B"><TextBlock Text="READY ROOM" Foreground="{StaticResource Accent}" FontSize="10" FontWeight="Bold"/></Border>
+                <Border Style="{StaticResource Pill}"><TextBlock x:Name="LblQuickModePill" FontSize="11"/></Border>
+                <Border Style="{StaticResource Pill}"><TextBlock x:Name="LblQuickHardwarePill" FontSize="11"/></Border>
+              </WrapPanel>
+              <TextBlock Text="Start the whole rig from one button." FontSize="25" FontWeight="SemiBold" Margin="0,8,0,5"/>
+              <TextBlock x:Name="LblQuickHint" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,17"/>
+              <ProgressBar x:Name="QuickProgress" Style="{StaticResource GlowProgress}" Height="9" Margin="0,0,0,8"/>
+              <TextBlock x:Name="LblQuickReadiness" FontSize="11.5" Foreground="{StaticResource Muted}" Margin="0,0,0,17"/>
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnQuickLaunch" Style="{StaticResource Primary}" Content="Launch" Margin="0,0,10,0"/>
+                <Button x:Name="BtnCustomize" Content="Arrange screens" Margin="0,0,10,0"/>
+                <Button x:Name="BtnGuide" Content="Setup guide"/>
+              </StackPanel>
+            </StackPanel>
+
+            <Border Grid.Column="2" Style="{StaticResource SoftCard}" Background="#CC11151C">
+              <StackPanel>
+                <TextBlock Style="{StaticResource Lbl}" Text="SESSION"/>
+                <ComboBox x:Name="CbQuickMode">
+                  <ComboBoxItem Content="BeamMP · shared world"/><ComboBoxItem Content="Solo · separate worlds"/>
+                </ComboBox>
+                <TextBlock Style="{StaticResource Lbl}" Text="PLAYERS"/>
+                <ComboBox x:Name="CbQuickPlayers" SelectedIndex="1">
+                  <ComboBoxItem Content="1 player"/><ComboBoxItem Content="2 players"/><ComboBoxItem Content="3 players"/><ComboBoxItem Content="4 players"/>
+                </ComboBox>
+                <Grid Margin="0,5,0,0">
+                  <TextBlock Text="Readiness" Foreground="{StaticResource Muted}"/>
+                  <TextBlock x:Name="LblQuickPercent" HorizontalAlignment="Right" Foreground="{StaticResource Accent}" FontSize="18" FontWeight="SemiBold"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Grid>
       </Border>
 
       <Border Style="{StaticResource CardStyle}">
@@ -58,4 +107,6 @@
 
     </StackPanel>
   </ScrollViewer>
+  <ContentControl x:Name="GuideHost" Grid.Row="1" Visibility="Collapsed"/>
+  </Grid>
 </UserControl>

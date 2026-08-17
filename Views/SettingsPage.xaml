@@ -43,11 +43,66 @@
 
       <Border Style="{StaticResource CardStyle}">
         <StackPanel>
+          <TextBlock Style="{StaticResource H2}" Text="Audio for every instance" Margin="0,0,0,6"/>
+          <TextBlock Style="{StaticResource Sub}"
+                     Text="Applied to every BeamNG profile before launch. Windows Volume Mixer can still mute or reroute each running process separately."/>
+
+          <Grid Margin="0,4,0,8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/><ColumnDefinition Width="16"/>
+              <ColumnDefinition Width="*"/><ColumnDefinition Width="16"/>
+              <ColumnDefinition Width="*"/><ColumnDefinition Width="16"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+              <TextBlock Style="{StaticResource Lbl}" Text="MASTER %"/>
+              <TextBox x:Name="TxtAudioMaster"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+              <TextBlock Style="{StaticResource Lbl}" Text="VEHICLE / EFFECTS %"/>
+              <TextBox x:Name="TxtAudioEffects"/>
+            </StackPanel>
+            <StackPanel Grid.Column="4">
+              <TextBlock Style="{StaticResource Lbl}" Text="MUSIC %"/>
+              <TextBox x:Name="TxtAudioMusic"/>
+            </StackPanel>
+            <StackPanel Grid.Column="6">
+              <TextBlock Style="{StaticResource Lbl}" Text="UI %"/>
+              <TextBox x:Name="TxtAudioUi"/>
+            </StackPanel>
+          </Grid>
+
+          <TextBlock Style="{StaticResource Lbl}" Text="OUTPUT DEVICE"/>
+          <Grid Margin="0,0,0,4">
+            <ComboBox x:Name="CbAudioDevice" IsEditable="True" Margin="0,0,96,0"/>
+            <Button x:Name="BtnRefreshAudio" Style="{StaticResource Small}" Content="Refresh"
+                    HorizontalAlignment="Right" VerticalAlignment="Top"/>
+          </Grid>
+          <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,8"
+                     Text="System default is recommended. Device changes take effect on the next launch."/>
+          <TextBlock Style="{StaticResource Lbl}" Text="BEAMMP MIX"/>
+          <ComboBox x:Name="CbAudioMix" Width="430" HorizontalAlignment="Left">
+            <ComboBoxItem Content="Local vehicle per player - no doubled cars (recommended)"/>
+            <ComboBoxItem Content="Every instance - full world mix (separate headsets)"/>
+            <ComboBoxItem Content="P0 only - single shared listener"/>
+          </ComboBox>
+          <TextBlock Style="{StaticResource Sub}" Margin="0,3,0,8"
+                     Text="Local vehicle mode keeps each player's own car and perspective audio, but suppresses BeamMP remote vehicle emitters in that process."/>
+          <CheckBox x:Name="ChkAudioBackground" Content="Keep sound playing when BeamNG windows are not focused"/>
+          <CheckBox x:Name="ChkAudioHeadphones" Content="Stereo headphones mode (HRTF)"/>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource CardStyle}">
+        <StackPanel>
           <TextBlock Style="{StaticResource H2}" Text="Session behaviour" Margin="0,0,0,12"/>
           <CheckBox x:Name="ChkBorderless" Content="Borderless windows"/>
           <CheckBox x:Name="ChkIsolate" Content="One controller per instance"/>
           <CheckBox x:Name="ChkProtoInput" Content="Proto Input (recommended: focus-independent controller routing)"/>
           <CheckBox x:Name="ChkWatchdog" Content="Legacy focus guard fallback"/>
+          <CheckBox x:Name="ChkLaunchCinematic" Content="Play the BeamSplit launch film while instances launch"/>
+          <Button x:Name="BtnPreviewCinematic" Style="{StaticResource Small}" Content="Preview launch film"
+                  HorizontalAlignment="Left" Margin="20,0,0,6"/>
           <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
             <TextBlock Text="Frame limit for every instance" VerticalAlignment="Center" Margin="0,0,10,0"/>
             <TextBox x:Name="TxtFrameLimit" Width="70"/>
@@ -121,6 +176,31 @@
                      Text="BeamSplit will not fetch this for you - there is no canonical release of Goldberg any more, and unsigned Steam emulators from random mirrors are a common malware vector. Supply your own copy and use Browse. Locate also checks whether Nucleus Co-op has already installed one on this PC."/>
           <Button x:Name="BtnRestoreEmu" Style="{StaticResource Small}" Content="Restore original steam_api64.dll"
                   HorizontalAlignment="Left"/>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource CardStyle}">
+        <StackPanel>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="BeamSplit updates" Margin="0,0,0,6"/>
+              <TextBlock x:Name="LblCurrentVersion" Style="{StaticResource Sub}"/>
+            </StackPanel>
+            <Border Grid.Column="1" Style="{StaticResource Pill}" Background="#253828" VerticalAlignment="Top">
+              <TextBlock Text="VERIFIED DOWNLOADS" Foreground="{StaticResource Good}" FontSize="10" FontWeight="Bold"/>
+            </Border>
+          </Grid>
+          <TextBlock x:Name="LblUpdateStatus" Margin="0,12,0,8" TextWrapping="Wrap"/>
+          <ProgressBar x:Name="UpdateProgress" Style="{StaticResource GlowProgress}" Height="8" Value="0" Margin="0,0,0,12"/>
+          <CheckBox x:Name="ChkAutoUpdates" Content="Check for updates quietly when BeamSplit starts"/>
+          <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,12"
+                     Text="Updates come from the official KumaraKyle/BeamSplit GitHub release and are installed only when GitHub's SHA-256 digest matches the download. Your config and instance folders stay where they are."/>
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="BtnCheckUpdate" Style="{StaticResource Small}" Content="Check now" Margin="0,0,8,0"/>
+            <Button x:Name="BtnInstallUpdate" Style="{StaticResource Primary}" Content="Download and restart" Margin="0,0,8,0" IsEnabled="False"/>
+            <Button x:Name="BtnOpenRelease" Style="{StaticResource Small}" Content="Release notes" IsEnabled="False"/>
+          </StackPanel>
         </StackPanel>
       </Border>
 

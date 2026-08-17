@@ -22,6 +22,11 @@ namespace BeamSplit.Core;
 /// </summary>
 public static class GameSettings
 {
+    internal static double AudioMasterLevel(AppConfig cfg, int instance) =>
+        string.Equals(cfg.AudioMixMode, "P0Only", StringComparison.OrdinalIgnoreCase) && instance > 0
+            ? 0d
+            : Math.Clamp(cfg.AudioMaster, 0, 100) / 100d;
+
     private static string CloudFile(AppConfig cfg, int i) =>
         Path.Combine(Instances.CurrentProfile(cfg, i), "settings", "cloud", "settings.json");
 
@@ -32,7 +37,6 @@ public static class GameSettings
     {
         Patch(CloudFile(cfg, i), new Dictionary<string, JsonNode?>
         {
-            ["AudioMuteOnWindowLoseFocus"] = false,
             ["unfocusedInput"] = true
         });
         Patch(LocalFile(cfg, i), new Dictionary<string, JsonNode?>
@@ -43,7 +47,43 @@ public static class GameSettings
             ["fpsLimitBackground"] = Math.Clamp(cfg.FrameLimit, 30, 240),
             ["GraphicDisplayModes"] = "Window"
         });
-        log?.Report($"  P{i}: windowed, audio/input in background, {Math.Clamp(cfg.FrameLimit, 30, 240)} fps cap");
+        log?.Report($"  P{i}: windowed, input in background, {Math.Clamp(cfg.FrameLimit, 30, 240)} fps cap");
+    }
+
+    /// <summary>Applies the shared audio mix and output device to one profile.</summary>
+    public static void ApplyAudio(AppConfig cfg, int i, IProgress<string>? log = null)
+    {
+        static double Level(int percent) => Math.Clamp(percent, 0, 100) / 100d;
+
+        Patch(CloudFile(cfg, i), new Dictionary<string, JsonNode?>
+        {
+            ["AudioMuteOnWindowLoseFocus"] = !cfg.AudioInBackground
+        });
+
+        var primaryMixMuted = string.Equals(cfg.AudioMixMode, "P0Only", StringComparison.OrdinalIgnoreCase) && i > 0;
+        var master = AudioMasterLevel(cfg, i);
+        var effects = Level(cfg.AudioEffects);
+        Patch(LocalFile(cfg, i), new Dictionary<string, JsonNode?>
+        {
+            ["AudioMasterVol"] = master,
+            ["AudioMusicVol"] = Level(cfg.AudioMusic),
+            ["AudioUiVol"] = Level(cfg.AudioUi),
+            ["AudioPowerVol"] = effects,
+            ["AudioForcedInductionVol"] = effects,
+            ["AudioTransmissionVol"] = effects,
+            ["AudioSuspensionVol"] = effects,
+            ["AudioSurfaceVol"] = effects,
+            ["AudioCollisionVol"] = effects,
+            ["AudioAeroVol"] = effects,
+            ["AudioEnvironmentVol"] = effects,
+            ["AudioOtherVol"] = effects,
+            ["AudioEnableStereoHeadphones"] = cfg.AudioStereoHeadphones,
+            ["AudioDevice"] = cfg.AudioDevice ?? ""
+        });
+
+        var device = string.IsNullOrWhiteSpace(cfg.AudioDevice) ? "Windows default" : cfg.AudioDevice;
+        var mix = primaryMixMuted ? "muted (P0 supplies shared mix)" : $"{Math.Clamp(cfg.AudioMaster, 0, 100)}%";
+        log?.Report($"  P{i}: audio {mix}, effects {Math.Clamp(cfg.AudioEffects, 0, 100)}%, output {device}, background {(cfg.AudioInBackground ? "on" : "muted")}");
     }
 
     public static void ApplyGraphics(AppConfig cfg, int i, IProgress<string>? log = null)

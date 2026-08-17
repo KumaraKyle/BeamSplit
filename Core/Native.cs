@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace BeamSplit.Core;
 
@@ -124,10 +125,73 @@ public static partial class Native
     [LibraryImport("user32.dll")]
     public static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
 
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsZoomed(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ShowWindow(IntPtr hWnd, int command);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr data);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool EnumWindows(EnumWindowsProc callback, IntPtr data);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
+
+    /// <summary>
+    /// BeamNG sometimes creates a visible console companion whose caption is the full
+    /// Bin64 executable path. Hide only that auxiliary window for the supplied process;
+    /// the actual "BeamNG.drive - ..." render window remains untouched.
+    /// </summary>
+    public static int HideBeamNgConsoleWindows(uint processId)
+    {
+        var hidden = 0;
+        EnumWindows((hwnd, _) =>
+        {
+            GetWindowThreadProcessId(hwnd, out var owner);
+            if (owner != processId) return true;
+            var buffer = new StringBuilder(512);
+            if (GetWindowText(hwnd, buffer, buffer.Capacity) <= 0) return true;
+            var title = buffer.ToString();
+            var auxiliary = title.EndsWith("BeamNG.drive.x64.exe", StringComparison.OrdinalIgnoreCase) ||
+                            title.Contains(@"\Bin64\BeamNG.drive", StringComparison.OrdinalIgnoreCase);
+            if (!auxiliary || title.StartsWith("BeamNG.drive -", StringComparison.OrdinalIgnoreCase)) return true;
+            if (ShowWindow(hwnd, SW_HIDE)) hidden++;
+            return true;
+        }, IntPtr.Zero);
+        return hidden;
+    }
+
+    public static (int X, int Y, int W, int H)? WindowBounds(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var r)) return null;
+        return (r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+    }
+
     public const int GWL_STYLE = -16;
+    public const int WS_POPUP = unchecked((int)0x80000000);
+    public const int WS_VISIBLE = 0x10000000;
     public const int WS_CAPTION = 0x00C00000;
     public const int WS_THICKFRAME = 0x00040000;
+    public const int WS_SYSMENU = 0x00080000;
+    public const int WS_MINIMIZEBOX = 0x00020000;
+    public const int WS_MAXIMIZEBOX = 0x00010000;
+    public const int WS_OVERLAPPEDWINDOW = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU |
+                                           WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
     public const uint SWP_NOZORDER = 0x0004;
+    public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_FRAMECHANGED = 0x0020;
+    public const uint SWP_SHOWWINDOW = 0x0040;
+    public const int SW_RESTORE = 9;
+    public const int SW_HIDE = 0;
 
     // ------------------------------------------------------------------ xinput
     // Query pad presence directly rather than depending on SharpDX.

@@ -40,7 +40,7 @@ public static class ProtoInput
     {
         if (!cfg.UseProtoInput || !Ready) return null;
         var slot = cfg.Players.ElementAtOrDefault(instance);
-        if (slot is null || slot.Keyboard || slot.Pad < 0) return null;
+        if (slot is null) return null;
 
         lock (Gate)
         {
@@ -78,13 +78,20 @@ public static class ProtoInput
                 if (handle == 0 || pid == 0) throw new InvalidOperationException("injection returned no process");
                 _setup!(handle, instance + 1);
                 _openXInput!(handle, useOpenXInput);
-                _controller!(handle, (uint)slot.Pad + 1, 0, 0, 0);
+                // Inject keyboard/no-pad instances too, with controller index 0
+                // (disabled). That keeps a live handle available if the user assigns
+                // a pad later; previously that transition could only work after a
+                // full relaunch because keyboard instances were never injected.
+                var controller = slot.Keyboard || slot.Pad < 0 ? 0u : (uint)slot.Pad + 1;
+                _controller!(handle, controller, 0, 0, 0);
                 _hook!(handle, Hook.XInput);
                 _hook!(handle, Hook.Focus);
                 _focusLoop!(handle, 5, true, true, true, true, true);
                 _wake!(handle);
                 Active[instance] = (handle, (int)pid);
-                log?.Report($"  P{instance}: Proto Input pad {slot.Pad}, fake focus, pid {pid}");
+                log?.Report(controller == 0
+                    ? $"  P{instance}: Proto Input ready with no pad, fake focus, pid {pid}"
+                    : $"  P{instance}: Proto Input pad {slot.Pad}, fake focus, pid {pid}");
                 return Process.GetProcessById((int)pid);
             }
             catch (Exception ex)
@@ -106,7 +113,7 @@ public static class ProtoInput
                 using var process = Process.GetProcessById(active.Pid);
                 if (process.HasExited) { Active.Remove(instance); return false; }
                 EnsureLoaded();
-                _controller!(active.Handle, (uint)pad + 1, 0, 0, 0);
+                _controller!(active.Handle, pad < 0 ? 0u : (uint)pad + 1, 0, 0, 0);
                 return true;
             }
             catch

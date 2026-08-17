@@ -55,16 +55,60 @@ public static class Tiling
         _ => 1
     };
 
-    public static void Place(IntPtr hwnd, Rect r, bool borderless)
+    public static bool Place(IntPtr hwnd, Rect r, bool borderless)
     {
-        if (hwnd == IntPtr.Zero) return;
+        if (hwnd == IntPtr.Zero) return false;
+        // BeamNG can retain a maximized WINDOWPLACEMENT even after its renderer says
+        // "Window". Always restore first; SetWindowPos alone does not clear that state
+        // and Windows will snap it back to the monitor on the next frame change.
+        Native.ShowWindow(hwnd, Native.SW_RESTORE);
+
+        var style = Native.GetWindowLong(hwnd, Native.GWL_STYLE);
+        var wantedStyle = DesiredStyle(style, borderless);
+        if (wantedStyle != style)
+            Native.SetWindowLong(hwnd, Native.GWL_STYLE, wantedStyle);
+
         if (borderless)
-        {
-            // strip the title bar and resize frame so tiles sit flush
-            var style = Native.GetWindowLong(hwnd, Native.GWL_STYLE);
-            Native.SetWindowLong(hwnd, Native.GWL_STYLE, style & ~(Native.WS_CAPTION | Native.WS_THICKFRAME));
-        }
-        Native.SetWindowPos(hwnd, IntPtr.Zero, r.X, r.Y, r.W, r.H, Native.SWP_NOZORDER);
+            Native.ShowWindow(hwnd, Native.SW_RESTORE);
+
+        Native.SetWindowPos(hwnd, IntPtr.Zero, r.X, r.Y, r.W, r.H,
+            Native.SWP_NOZORDER | Native.SWP_NOACTIVATE | Native.SWP_FRAMECHANGED | Native.SWP_SHOWWINDOW);
+        return Matches(hwnd, r, borderless);
+    }
+
+    public static bool Matches(IntPtr hwnd, Rect expected, bool? borderless = null, int tolerance = 4)
+    {
+        if (Native.IsZoomed(hwnd)) return false;
+        if (borderless.HasValue && !StyleMatches(hwnd, borderless.Value)) return false;
+        var actual = Native.WindowBounds(hwnd);
+        return actual is { } a &&
+               Math.Abs(a.X - expected.X) <= tolerance &&
+               Math.Abs(a.Y - expected.Y) <= tolerance &&
+               Math.Abs(a.W - expected.W) <= tolerance &&
+               Math.Abs(a.H - expected.H) <= tolerance;
+    }
+
+    /// <summary>
+    /// A matching rectangle is not enough. BeamNG can recreate the same-sized window
+    /// with a caption/maximize frame, which used to make retile report success while
+    /// the game still looked fullscreen. Verify the presentation style as well.
+    /// </summary>
+    public static bool StyleMatches(IntPtr hwnd, bool borderless)
+    {
+        if (hwnd == IntPtr.Zero) return false;
+        return StyleValueMatches(Native.GetWindowLong(hwnd, Native.GWL_STYLE), borderless);
+    }
+
+    internal static int DesiredStyle(int style, bool borderless) => borderless
+        ? (style & ~Native.WS_OVERLAPPEDWINDOW) | Native.WS_POPUP | Native.WS_VISIBLE
+        : (style & ~Native.WS_POPUP) | Native.WS_OVERLAPPEDWINDOW | Native.WS_VISIBLE;
+
+    internal static bool StyleValueMatches(int style, bool borderless)
+    {
+        return borderless
+            ? (style & Native.WS_OVERLAPPEDWINDOW) == 0 && (style & Native.WS_POPUP) != 0
+            : (style & Native.WS_CAPTION) != 0 && (style & Native.WS_THICKFRAME) != 0 &&
+              (style & Native.WS_POPUP) == 0;
     }
 
     /// <summary>
@@ -94,4 +138,19 @@ public static class Tiling
                .Where(p => p.MainWindowHandle != IntPtr.Zero && p.MainWindowTitle.StartsWith("BeamNG", StringComparison.OrdinalIgnoreCase))
                .OrderBy(p => { try { return p.StartTime; } catch { return DateTime.MaxValue; } })
                .ToList();
+
+    public static string? ProcessPath(Process process)
+    {
+        try { return process.MainModule?.FileName; }
+        catch { return null; }
+    }
+
+    /// <summary>Find a running window by its persistent instance folder, never list order.</summary>
+    public static Process? WindowForInstance(AppConfig cfg, int instance, IReadOnlyList<Process>? windows = null)
+    {
+        windows ??= GameWindows();
+        var wanted = Instances.GameExe(cfg, instance);
+        return windows.FirstOrDefault(p =>
+            ProcessPath(p)?.Equals(wanted, StringComparison.OrdinalIgnoreCase) == true);
+    }
 }

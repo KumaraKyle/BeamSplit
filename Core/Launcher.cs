@@ -20,6 +20,7 @@ namespace BeamSplit.Core;
 public sealed class Launcher(AppState state)
 {
     private readonly AppState _state = state;
+    private readonly Dictionary<int, Process> _gameProcesses = [];
 
     public int PortFor(int instance) => _state.Config.BasePort + instance * 2;
 
@@ -60,6 +61,14 @@ public sealed class Launcher(AppState state)
             .Select(i => LaunchInstanceAsync(i, beamMp, log, ct))
             .ToArray();
         var gameProcesses = await Task.WhenAll(launches);
+        _gameProcesses.Clear();
+        for (var ordinal = 0; ordinal < gameProcesses.Length; ordinal++)
+        {
+            var process = gameProcesses[ordinal];
+            if (process is null) continue;
+            var instance = cfg.Players.ElementAtOrDefault(ordinal)?.Index ?? ordinal;
+            _gameProcesses[instance] = process;
+        }
 
         // 5. windows
         await TileAsync(log, ct, gameProcesses);
@@ -74,6 +83,7 @@ public sealed class Launcher(AppState state)
             var cfg = _state.Config;
 
             GameSettings.ApplyFocusFixes(cfg, i, log);
+            GameSettings.ApplyAudio(cfg, i, log);
             GameSettings.ApplyGraphics(cfg, i, log);
 
             // Optional, off by default. Applied to the instance's own Bin64 copy only -
@@ -101,6 +111,7 @@ public sealed class Launcher(AppState state)
                 proc = Process.Start(start);
             }
             log?.Report($"  P{i}: game pid {proc?.Id}");
+            if (proc != null) _ = HideBeamNgConsoleAsync(proc, ct);
             await ReportEarlyExitAsync(i, proc, log, ct);
             return proc;
         }
@@ -110,6 +121,23 @@ public sealed class Launcher(AppState state)
             log?.Report($"  P{i}: launch failed - {ex.Message}");
             return null;
         }
+    }
+
+    private static async Task HideBeamNgConsoleAsync(Process process, CancellationToken ct)
+    {
+        try
+        {
+            // The companion window may be created before or after the renderer, so
+            // watch across early engine startup. The launch cinematic covers this
+            // interval and the captured output is rendered on its in-dash CRT.
+            for (var pass = 0; pass < 80 && !process.HasExited; pass++)
+            {
+                Native.HideBeamNgConsoleWindows((uint)process.Id);
+                await Task.Delay(250, ct);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch { }
     }
 
     /// <summary>
@@ -128,6 +156,8 @@ public sealed class Launcher(AppState state)
             log?.Report($"  P{i}: launcher did not report ready in time; starting game anyway");
 
         InputSetup.InstallMatchingMod(cfg, i, log, lockFile: false);
+        BeamMpAudioIsolation.PatchClient(cfg, i,
+            string.Equals(cfg.AudioMixMode, "LocalVehicle", StringComparison.OrdinalIgnoreCase), log);
     }
 
     private Process? StartBeamMpLauncher(int i, IProgress<string>? log, bool resetLog = false)
@@ -275,100 +305,151 @@ public sealed class Launcher(AppState state)
         catch { return false; }
     }
 
-    /// <summary>Places each window on its slot's region, then parks focus off the games.</summary>
+    /// <summary>
+    /// Places windows immediately when they appear, then keeps checking while BeamNG
+    /// finishes graphics initialization. BeamNG can maximize, recreate or resize its
+    /// window several seconds after MainWindowHandle first becomes non-zero, so a
+    /// successful one-shot SetWindowPos is not a stable result.
+    /// </summary>
     public async Task TileAsync(IProgress<string>? log = null, CancellationToken ct = default,
         IReadOnlyList<Process?>? launched = null)
     {
         var cfg = _state.Config;
         var players = Math.Max(1, cfg.Players.Count);
-        var monitors = Native.GetMonitors();
-
-        var placed = new HashSet<int>();
         var deadline = DateTime.UtcNow.AddMinutes(5);
+        var firstWindowAt = DateTime.MinValue;
+        var lastHandles = new Dictionary<int, IntPtr>();
+        var stablePasses = new Dictionary<int, int>();
+        var reported = new HashSet<int>();
 
-        while (DateTime.UtcNow < deadline && placed.Count < players)
+        while (DateTime.UtcNow < deadline)
         {
             ct.ThrowIfCancellationRequested();
-            var waitingForWindow = false;
-
-            if (launched is not null)
+            var monitors = Native.GetMonitors();
+            var ready = 0;
+            var settled = 0;
+            for (var ordinal = 0; ordinal < players; ordinal++)
             {
-                // Parallel startup makes process enumeration order nondeterministic.
-                // Track the exact process returned for each player instead.
-                for (var idx = 0; idx < players; idx++)
+                var slot = cfg.Players.ElementAtOrDefault(ordinal) ?? new PlayerSlot { Index = ordinal };
+                Process? proc = launched is not null && ordinal < launched.Count
+                    ? launched[ordinal]
+                    : Tiling.WindowForInstance(cfg, slot.Index);
+                if (proc is null)
                 {
-                    if (placed.Contains(idx)) continue;
-                    var proc = idx < launched.Count ? launched[idx] : null;
-                    if (proc is null) continue;
+                    if (launched is not null) settled++;
+                    continue;
+                }
 
-                    try
+                try
+                {
+                    Native.HideBeamNgConsoleWindows((uint)proc.Id);
+                    proc.Refresh();
+                    if (proc.HasExited) { settled++; continue; }
+                    var hwnd = proc.MainWindowHandle;
+                    if (hwnd == IntPtr.Zero) continue;
+                    if (firstWindowAt == DateTime.MinValue) firstWindowAt = DateTime.UtcNow;
+
+                    if (!lastHandles.TryGetValue(slot.Index, out var previous) || previous != hwnd)
                     {
-                        proc.Refresh();
-                        if (proc.HasExited) continue;
-                        waitingForWindow = true;
-                        if (proc.MainWindowHandle == IntPtr.Zero) continue;
-
-                        var slot = cfg.Players.ElementAtOrDefault(idx) ?? new PlayerSlot { Index = idx };
-                        var rect = Tiling.RegionFor(slot, monitors);
-                        Tiling.Place(proc.MainWindowHandle, rect, cfg.Borderless);
-                        placed.Add(idx);
-                        log?.Report($"  P{idx}: window at {rect.X},{rect.Y} {rect.W}x{rect.H}");
+                        lastHandles[slot.Index] = hwnd;
+                        stablePasses[slot.Index] = 0;
                     }
-                    catch { }
-                }
-            }
-            else
-            {
-                var wins = Tiling.GameWindows();
-                for (var idx = 0; idx < wins.Count && idx < players; idx++)
-                {
-                    if (!placed.Add(idx)) continue;
-                    var proc = wins[idx];
 
-                    var slot = cfg.Players.ElementAtOrDefault(idx) ?? new PlayerSlot { Index = idx };
                     var rect = Tiling.RegionFor(slot, monitors);
-                    Tiling.Place(proc.MainWindowHandle, rect, cfg.Borderless);
-                    log?.Report($"  P{idx}: window at {rect.X},{rect.Y} {rect.W}x{rect.H}");
+                    if (!Tiling.Matches(hwnd, rect, cfg.Borderless))
+                    {
+                        Tiling.Place(hwnd, rect, cfg.Borderless);
+                        stablePasses[slot.Index] = 0;
+                    }
+                    else stablePasses[slot.Index] = stablePasses.GetValueOrDefault(slot.Index) + 1;
+
+                    if (reported.Add(slot.Index))
+                        log?.Report($"  P{slot.Index}: window acquired at {rect.X},{rect.Y} {rect.W}x{rect.H}; stabilizing ...");
+                    if (stablePasses.GetValueOrDefault(slot.Index) >= 8) { ready++; settled++; }
                 }
+                catch { }
             }
 
-            if (launched is not null && placed.Count < players && !waitingForWindow) break;
-            if (placed.Count < players) await Task.Delay(4000, ct);
+            // Stay on guard for at least 15 seconds after the first window. This spans
+            // BeamNG's late display-mode reset instead of declaring success too early.
+            if (ready == players && firstWindowAt != DateTime.MinValue &&
+                DateTime.UtcNow - firstWindowAt >= TimeSpan.FromSeconds(15))
+                break;
+            if (launched is not null && settled == players &&
+                (firstWindowAt == DateTime.MinValue || DateTime.UtcNow - firstWindowAt >= TimeSpan.FromSeconds(15)))
+                break;
+            await Task.Delay(250, ct);
         }
 
-        if (placed.Count < players)
-            log?.Report($"Only found {placed.Count}/{players} BeamNG window(s). If game pids were logged, they likely exited or stalled before creating a window.");
+        var finalCount = lastHandles.Count;
+        if (finalCount < players)
+            log?.Report($"Only found {finalCount}/{players} BeamNG window(s). If game pids were logged, they likely exited or stalled before creating a window.");
+        else log?.Report($"All {players} window(s) verified in their assigned regions.");
 
         if (Tiling.ParkFocus())
             log?.Report("Focus parked on the desktop - do not click into a game window.");
     }
 
     /// <summary>
-    /// Repositions the BeamNG windows that already exist, once, without waiting for
-    /// missing instances. Screen-layout changes use this path so the UI remains
-    /// responsive even while a game is still starting or has exited.
+    /// Repositions existing windows repeatedly for a short verification period. Slots
+    /// are matched to their instance exe path, so removing P0 does not make P1's window
+    /// inherit P0 merely because it became the first item in the UI list.
     /// </summary>
-    public int RetileRunning(IProgress<string>? log = null)
+    public async Task<int> RetileRunningAsync(IProgress<string>? log = null,
+        CancellationToken ct = default)
     {
         var cfg = _state.Config;
-        var monitors = Native.GetMonitors();
-        var wins = Tiling.GameWindows();
-        var count = Math.Min(wins.Count, cfg.Players.Count);
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var touched = new HashSet<int>();
+        var stable = new Dictionary<int, int>();
 
-        for (var idx = 0; idx < count; idx++)
+        while (DateTime.UtcNow < deadline)
         {
-            var slot = cfg.Players[idx];
-            var rect = Tiling.RegionFor(slot, monitors);
-            Tiling.Place(wins[idx].MainWindowHandle, rect, cfg.Borderless);
-            log?.Report($"  P{idx}: window retiled at {rect.X},{rect.Y} {rect.W}x{rect.H}");
+            ct.ThrowIfCancellationRequested();
+            var monitors = Native.GetMonitors();
+            var wins = Tiling.GameWindows();
+            foreach (var slot in cfg.Players)
+            {
+                var proc = ResolveRunningProcess(cfg, slot.Index, wins);
+                if (proc is null) continue;
+                var rect = Tiling.RegionFor(slot, monitors);
+                if (!Tiling.Matches(proc.MainWindowHandle, rect, cfg.Borderless))
+                {
+                    Tiling.Place(proc.MainWindowHandle, rect, cfg.Borderless);
+                    stable[slot.Index] = 0;
+                }
+                else stable[slot.Index] = stable.GetValueOrDefault(slot.Index) + 1;
+                touched.Add(slot.Index);
+            }
+
+            // Require three uninterrupted seconds. BeamNG often recreates its window
+            // shortly after a resize, and the previous 1.5 s check finished before
+            // that late fullscreen/caption reset happened.
+            if (touched.Count > 0 && touched.All(i => stable.GetValueOrDefault(i) >= 12)) break;
+            await Task.Delay(250, ct);
         }
 
-        log?.Report(count == 0
+        log?.Report(touched.Count == 0
             ? "No running BeamNG windows to retile; the layout is saved for launch."
-            : $"Applied screen layout to {count} running window(s).");
+            : $"Verified screen layout on {touched.Count} running window(s).");
 
-        if (count > 0) Tiling.ParkFocus();
-        return count;
+        if (touched.Count > 0) Tiling.ParkFocus();
+        return touched.Count;
+    }
+
+    private Process? ResolveRunningProcess(AppConfig cfg, int instance, IReadOnlyList<Process> windows)
+    {
+        if (_gameProcesses.TryGetValue(instance, out var tracked))
+        {
+            try
+            {
+                tracked.Refresh();
+                if (!tracked.HasExited && tracked.MainWindowHandle != IntPtr.Zero) return tracked;
+            }
+            catch { }
+            _gameProcesses.Remove(instance);
+        }
+        return Tiling.WindowForInstance(cfg, instance, windows);
     }
 
     public void StopAll(IProgress<string>? log = null)
@@ -380,6 +461,7 @@ public sealed class Launcher(AppState state)
                 try { p.Kill(true); } catch { }
             }
         }
+        _gameProcesses.Clear();
         log?.Report("Stopped all instances and launchers.");
     }
 }

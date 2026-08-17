@@ -57,6 +57,21 @@
     <Setter Property="Margin" Value="0,0,0,14"/>
   </Style>
 
+  <Style x:Key="SoftCard" TargetType="Border">
+    <Setter Property="Background" Value="#121721"/>
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="14"/>
+  </Style>
+
+  <Style x:Key="Pill" TargetType="Border">
+    <Setter Property="Background" Value="#202631"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="Padding" Value="10,5"/>
+    <Setter Property="Margin" Value="0,0,7,7"/>
+  </Style>
+
   <!-- buttons -->
   <Style TargetType="Button">
     <Setter Property="Background" Value="#20242E"/>
@@ -111,6 +126,34 @@
   <Style x:Key="Small" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Padding" Value="10,6"/>
     <Setter Property="FontSize" Value="12"/>
+  </Style>
+
+  <Style x:Key="GlowProgress" TargetType="ProgressBar">
+    <Setter Property="Height" Value="8"/>
+    <Setter Property="Background" Value="#272D38"/>
+    <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ProgressBar">
+          <Grid ClipToBounds="True">
+            <Border Background="{TemplateBinding Background}" CornerRadius="4"/>
+            <Border x:Name="PART_Track" CornerRadius="4"/>
+            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="4">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                  <GradientStop Color="#FF7A2F" Offset="0"/>
+                  <GradientStop Color="#FFB05C" Offset="0.62"/>
+                  <GradientStop Color="#FFF0C8" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.Background>
+              <Border.Effect>
+                <DropShadowEffect Color="#FF7A2F" BlurRadius="10" ShadowDepth="0" Opacity="0.48"/>
+              </Border.Effect>
+            </Border>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <!-- inputs -->

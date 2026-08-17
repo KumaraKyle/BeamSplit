@@ -16,24 +16,60 @@ public partial class SetupPage : UserControl
     private readonly Action _customize;
     private bool _busy;
 
-    public SetupPage(Func<int, Task> launch, Action customize)
+    public SetupPage(Func<int, Task> launch, Func<Task> retile, Action openScreens,
+        Action openServer, Action openSettings, Action startTour)
     {
         InitializeComponent();
         _launch = launch;
-        _customize = customize;
+        _customize = openScreens;
+
+        GuideHost.Content = new GuidePage(launch, retile, openScreens, openServer,
+            openSettings, ShowQuickPlay, startTour);
 
         BtnRecheck.Click += (_, _) => Refresh();
         BtnOpenData.Click += (_, _) => Process.Start("explorer.exe", Paths.AppData);
         BtnFixAll.Click += async (_, _) => await FixAllAsync();
         BtnCustomize.Click += (_, _) => _customize();
+        BtnGuide.Click += (_, _) => ShowGuide();
+        BtnPlayView.Click += (_, _) => ShowQuickPlay();
+        BtnGuideView.Click += (_, _) => ShowGuide();
         BtnQuickLaunch.Click += async (_, _) => await QuickLaunchAsync();
         CbQuickPlayers.SelectedIndex = Math.Clamp(Math.Max(1, _state.Config.Players.Count) - 1, 0, 3);
+        CbQuickMode.SelectedIndex = _state.Config.Mode == "Solo" ? 1 : 0;
+        CbQuickMode.SelectionChanged += (_, _) =>
+        {
+            _state.Config.Mode = CbQuickMode.SelectedIndex == 1 ? "Solo" : "BeamMP";
+            _state.Save();
+            Refresh();
+        };
 
         _state.Logged += OnLogged;
         Unloaded += (_, _) => _state.Logged -= OnLogged;
 
         foreach (var l in _state.Snapshot().TakeLast(80)) Append(l);
         Refresh();
+        if (!_state.Config.OnboardingComplete) ShowGuide();
+    }
+
+    private void ShowQuickPlay()
+    {
+        QuickPlayView.Visibility = Visibility.Visible;
+        GuideHost.Visibility = Visibility.Collapsed;
+        BtnPlayView.Background = (Brush)FindResource("Accent");
+        BtnPlayView.Foreground = Brushes.Black;
+        BtnGuideView.Background = (Brush)FindResource("CardHi");
+        BtnGuideView.Foreground = (Brush)FindResource("Fg");
+        Refresh();
+    }
+
+    private void ShowGuide()
+    {
+        QuickPlayView.Visibility = Visibility.Collapsed;
+        GuideHost.Visibility = Visibility.Visible;
+        BtnGuideView.Background = (Brush)FindResource("Accent");
+        BtnGuideView.Foreground = Brushes.Black;
+        BtnPlayView.Background = (Brush)FindResource("CardHi");
+        BtnPlayView.Foreground = (Brush)FindResource("Fg");
     }
 
     private async Task QuickLaunchAsync()
@@ -78,6 +114,24 @@ public partial class SetupPage : UserControl
             ? $"{ready}/{items.Count} ready  -  good to launch"
             : $"{ready}/{items.Count} ready  -  {blockers} blocking";
         LblSummary.Foreground = (Brush)FindResource(blockers == 0 ? "Good" : "Warn");
+
+        var applicable = items.Where(i => i.Essential).ToList();
+        var essentialReady = applicable.Count(i => i.Ok);
+        var percent = applicable.Count == 0 ? 100 : essentialReady * 100d / applicable.Count;
+        QuickProgress.BeginAnimation(ProgressBar.ValueProperty,
+            new DoubleAnimation(QuickProgress.Value, percent, TimeSpan.FromMilliseconds(520))
+            { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        LblQuickPercent.Text = $"{percent:0}%";
+        LblQuickReadiness.Text = blockers == 0
+            ? "All required checks passed. Instances will start together."
+            : $"{blockers} blocking item(s). Launch will repair what it can first.";
+        LblQuickHint.Text = blockers == 0
+            ? "Your saved screen layout, controller routes, audio perspective, and frame cap will be applied before launch."
+            : "BeamSplit can repair most missing pieces automatically; AuthKey and ambiguous game installs still need your choice.";
+        BtnQuickLaunch.Content = blockers == 0 ? $"Launch {CbQuickPlayers.SelectedIndex + 1} players" : "Repair & launch";
+        LblQuickModePill.Text = _state.Config.Mode;
+        var pads = Enumerable.Range(0, 4).Count(i => Native.PadConnected((uint)i));
+        LblQuickHardwarePill.Text = $"{Native.GetMonitors().Count} displays · {pads} pads";
     }
 
     private UIElement BuildRow(SetupItem item)
@@ -142,7 +196,7 @@ public partial class SetupPage : UserControl
     private async Task FixAllAsync()
     {
         if (_busy) return;
-        foreach (var key in new[] { "game", "launcher", "proxy", "protoinput", "devreorder", "server", "mod" })
+        foreach (var key in SetupRepair.AutomaticKeys)
         {
             var item = SetupStatus.Evaluate(_state.Config).FirstOrDefault(i => i.Key == key);
             if (item is { Ok: false }) await FixAsync(key, refresh: false);
@@ -158,73 +212,7 @@ public partial class SetupPage : UserControl
         BtnFixAll.IsEnabled = false;
         try
         {
-            var cfg = _state.Config;
-            switch (key)
-            {
-                case "game":
-                {
-                    var all = Detect.FindAllBeamNG();
-                    if (all.Count > 0)
-                    {
-                        cfg.GameRoot = all[0];
-                        _state.Log($"BeamNG: {all[0]}");
-                        if (all.Count > 1)
-                            _state.Log($"Note: {all.Count} installs found. Pick the right one on Settings if this is wrong.");
-                        foreach (var p in all.Skip(1)) _state.Log($"  also: {p}");
-                    }
-                    else _state.Log("BeamNG not found - set it manually on Settings.");
-                    break;
-                }
-                case "launcher":
-                {
-                    var p = Detect.FindLauncher();
-                    if (p != null) { cfg.LauncherExe = p; _state.Log($"BeamMP launcher: {p}"); }
-                    else _state.Log("BeamMP launcher not found - install BeamMP first.");
-                    break;
-                }
-                case "mod":
-                {
-                    var major = Detect.GameMajor(Detect.GameVersion(cfg));
-                    var match = await BeamMpCatalog.FindMatchingAsync(major, _state.Progress());
-                    if (match.ZipPath != null) cfg.ModZip = match.ZipPath;
-                    break;
-                }
-                case "server":
-                {
-                    var dir = await BeamMpCatalog.DownloadServerAsync(_state.Progress());
-                    if (dir != null)
-                    {
-                        cfg.ServerDir = dir;
-                        await ServerConfig.InitializeConfigAsync(cfg, _state.Progress());
-                        _state.Log("Server installed. It needs an AuthKey before it will start.");
-                    }
-                    break;
-                }
-                case "authkey":
-                    Process.Start(new ProcessStartInfo("https://keymaster.beammp.com") { UseShellExecute = true });
-                    _state.Log("Opened keymaster - paste the key on the Server page.");
-                    break;
-
-                case "proxy":
-                case "protoinput":
-                    NativeAssets.Extract(_state.Progress());
-                    break;
-
-                case "devreorder":
-                    if (!NativeAssets.LocateDevreorder(_state.Progress())
-                        && !await NativeAssets.DownloadDevreorderAsync(_state.Progress()))
-                    {
-                        Process.Start(new ProcessStartInfo("https://github.com/briankendall/devreorder") { UseShellExecute = true });
-                        // System.Windows.Shapes.Path is in scope here, so be explicit
-                        _state.Log($"Could not install devreorder automatically. Put the x64 dinput8.dll in {System.IO.Path.Combine(Paths.BinDir, "dinput8.dll")}");
-                    }
-                    break;
-
-                case "instances":
-                    _state.Log("Instances are built on the first launch - use the Play button.");
-                    break;
-            }
-            _state.Save();
+            await SetupRepair.FixAsync(key, _state);
         }
         catch (Exception ex)
         {

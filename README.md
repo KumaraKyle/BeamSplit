@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Release 1 · v1.0.0**
+**Release 1 · v1.2.0**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.
@@ -15,12 +15,15 @@ modify your BeamNG install; everything it creates lives in its own folders.
 
 ## Start here
 
-1. Run **`BeamSplit.exe`**.
-2. On **Play**, choose the player count and press **Check setup & launch**. BeamSplit
-   fixes everything it safely can, then starts all player pipelines in parallel.
-3. Only open **Screens** if you want to change which controller/display belongs to a
-   player or divide one monitor into regions.
-4. BeamMP only: in each window, **Multiplayer → Direct Connect → `127.0.0.1:30814`**.
+1. Run **`BeamSplit.exe`**. The first-run **Guide** walks through session type,
+   players, prerequisites, screens, server and audio in five short steps.
+2. Let **Fix setup** repair the safe automatic items. Anything requiring your choice
+   gets a direct button to the right screen.
+3. Choose a screen preset, review the final summary, and launch. All player pipelines
+   start in parallel.
+4. Next time, use the redesigned **Play** dashboard: choose mode/players and launch;
+   its readiness meter tells you what is missing before you wait.
+5. BeamMP only: in each window, **Multiplayer → Direct Connect → `127.0.0.1:30814`**.
 
 First launch builds one game folder per player and BeamNG compiles shaders per profile,
 so it's slow once. After that it's quick.
@@ -48,8 +51,17 @@ from the controllers independently.
 
 ## Tabs
 
-**Play** — the normal starting point: player count, one-button setup/launch, plus the
-detailed prerequisite checklist if something needs attention.
+**Guide** — the first-run tour. It remembers your place, repairs downloadable setup
+items, offers useful screen presets, and leaves advanced choices on their proper pages.
+You can reopen it whenever a new player needs the tour.
+
+**Cockpit tour** — a reusable five-stop walkaround over the real Play, Screens, Server,
+Session and Settings pages. Start it from the lower-left **Take cockpit tour**
+button; it explains what every screen is for without changing the rig.
+
+**Play** — the single starting point: switch between the first-time Setup guide and
+Quick play without changing pages, then choose player count, repair setup or launch. The
+detailed prerequisite checklist remains directly below whenever something needs attention.
 
 **Screens** — a map of your actual displays in Windows display-number order. Split any screen 1 / 2 stacked /
 2 side-by-side / 4, drag pads onto regions, hit **Identify** if you're not sure which
@@ -60,11 +72,19 @@ re-renders if you plug or unplug a display.
 **Server** — the BeamMP server settings (name, port, players, cars, map, AuthKey).
 
 **Session** — the launch dashboard opens automatically and replaces the loose launcher
-terminals. It shows CPU, GPU, RAM, displays, server state, ports, controller assignment,
-per-instance CPU/RAM, BeamMP client health, and launcher/game log previews. Live state:
+terminals. Its two car-style gauges show whole-system load and RAM; compact cards show
+running instances and world sync. Driver cards show ports, controllers, per-process CPU/RAM, BeamMP client
+health, and launcher/game log previews. Live state:
 `Idle → Building → Launching → Waiting for launcher → Game running → Connected → Synced`.
 A failing card names the actual missing signal — e.g. *connected to the launcher, not
 synced into the world* — instead of a generic error.
+
+Launch begins behind a skippable borderless-fullscreen film while every instance pipeline
+runs in parallel. One beam splits into a live pane for each player, the panes pulse with
+their individual launch progress, then resolve into the actual monitor and screen-region
+layout when every game window has been created, tiled and stabilized. The film can sustain
+indefinitely on a cold launch and resolves immediately when the real work finishes. Disable
+it or preview it safely under Settings → Session behaviour.
 
 **Console** (`Ctrl+\``) — app, server and every instance's logs in one place, with source
 filters, search and **Copy diagnostics**. There's a command bar too:
@@ -126,3 +146,16 @@ build. Add an exclusion for your instances folder and the game folder, then rebu
 the right one on Settings.
 
 Logs and config: `%LOCALAPPDATA%\BeamSplit`.
+
+---
+
+## Portable updates
+
+Settings → **BeamSplit updates** checks the official GitHub release channel. BeamSplit
+downloads only a release asset named `BeamSplit.exe`, `BeamSplit-portable.zip`, or
+`BeamSplit.zip`, verifies the SHA-256 digest supplied by GitHub, keeps the previous EXE
+as `BeamSplit.exe.previous`, and restarts in place. Config, profiles and instances are
+not replaced.
+
+The release repository and release must be public for unauthenticated installs. An
+update without GitHub's SHA-256 digest is shown but will not be installed automatically.

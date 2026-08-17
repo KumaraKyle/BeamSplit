@@ -32,6 +32,14 @@ public sealed class CachedPad
 
 public sealed class AppConfig
 {
+    public bool OnboardingComplete { get; set; }
+    public int OnboardingStep { get; set; }
+    public bool AppTourComplete { get; set; }
+    public bool LaunchCinematic { get; set; } = true;
+    public bool AutoUpdateCheck { get; set; } = true;
+    public DateTime? LastUpdateCheckUtc { get; set; }
+    public string? SkippedUpdateVersion { get; set; }
+
     public string? GameRoot { get; set; }
     public string? LauncherExe { get; set; }
     public string? ServerDir { get; set; }
@@ -47,6 +55,19 @@ public sealed class AppConfig
     public bool UseProtoInput { get; set; } = true;// injected focus-independent controller routing
     public bool Watchdog { get; set; } = false;    // legacy fallback: keep game windows unfocused
     public int FrameLimit { get; set; } = 60;      // same cap in foreground and background
+
+    // BeamNG audio settings applied to every profile immediately before launch.
+    // The Windows volume mixer remains independent and can still mute/reroute an
+    // individual BeamNG process after it has started.
+    public int AudioMaster { get; set; } = 100;
+    public int AudioEffects { get; set; } = 80;
+    public int AudioMusic { get; set; } = 80;
+    public int AudioUi { get; set; } = 80;
+    public bool AudioInBackground { get; set; } = true;
+    public bool AudioStereoHeadphones { get; set; }
+    public string? AudioDevice { get; set; }        // null = Windows default output
+    /// <summary>LocalVehicle (recommended), All, or P0Only.</summary>
+    public string AudioMixMode { get; set; } = "LocalVehicle";
     /// <summary>
     /// Optional Goldberg Steam-API emulation for the instance copies. Off by default,
     /// and BeamSplit never downloads it - the user points at their own copy.
@@ -75,50 +96,64 @@ public sealed class AppConfig
     public int PlayerCount => Math.Max(Players.Count, 0);
 
     /// <summary>
-    /// Sensible default assignment when the user hasn't arranged anything yet:
-    /// one player per monitor while monitors last, then fill by splitting the primary.
-    /// Pads map 1:1 to players. The Screens page overwrites all of this.
+    /// Ensures the requested number of slots without replacing layouts already made on
+    /// the Screens page. The old implementation rebuilt every slot immediately before
+    /// launch, silently turning a vertical split back into one full-screen window per
+    /// monitor. Defaults are now created only for genuinely new players.
     /// </summary>
     public void EnsureDefaultPlayers(int count)
     {
+        count = Math.Max(1, count);
         var monitors = Native.GetMonitors();
         if (monitors.Count == 0) return;
 
-        var slots = new List<PlayerSlot>();
-        for (var i = 0; i < count; i++)
+        if (Players.Count > count)
+            Players = Players.Take(count).ToList();
+
+        while (Players.Count < count)
         {
-            if (i < monitors.Count)
+            var index = Players.Count;
+            var unused = monitors.FirstOrDefault(m =>
+                Players.All(p => !p.MonitorDevice.Equals(m.DeviceName, StringComparison.OrdinalIgnoreCase)));
+
+            if (!string.IsNullOrWhiteSpace(unused.DeviceName))
             {
-                slots.Add(new PlayerSlot
+                Players.Add(new PlayerSlot
                 {
-                    Index = i,
-                    MonitorDevice = monitors[i].DeviceName,
+                    Index = index,
+                    MonitorDevice = unused.DeviceName,
                     Split = SplitMode.Full,
                     Region = 0,
-                    Pad = i
+                    Pad = index
                 });
+                continue;
             }
-            else
+
+            // Every display already has a player: add the new one to the primary and
+            // expand only that display's existing slots to the required capacity.
+            var primary = monitors.FirstOrDefault(m => m.Primary, monitors[0]);
+            var onPrimary = Players
+                .Where(p => p.MonitorDevice.Equals(primary.DeviceName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var mode = onPrimary.Count + 1 <= 2 ? SplitMode.TwoStacked : SplitMode.FourGrid;
+            for (var region = 0; region < onPrimary.Count; region++)
             {
-                // more players than screens: stack the extras on the primary
-                var primary = monitors.FirstOrDefault(m => m.Primary, monitors[0]);
-                var extra = i - monitors.Count;
-                slots.Add(new PlayerSlot
-                {
-                    Index = i,
-                    MonitorDevice = primary.DeviceName,
-                    Split = count - monitors.Count > 1 ? SplitMode.FourGrid : SplitMode.TwoStacked,
-                    Region = extra,
-                    Pad = i
-                });
+                onPrimary[region].Split = mode;
+                onPrimary[region].Region = region;
             }
+            Players.Add(new PlayerSlot
+            {
+                Index = index,
+                MonitorDevice = primary.DeviceName,
+                Split = mode,
+                Region = onPrimary.Count,
+                Pad = index
+            });
         }
 
-        // keep any pad choices the user already made for these slots
-        for (var i = 0; i < slots.Count && i < Players.Count; i++)
-            if (Players[i].Pad >= 0) slots[i].Pad = Players[i].Pad;
-
-        Players = slots;
+        // A new launch creates fresh P0..Pn processes, so normalize only their identity;
+        // monitor, split, region, pad and keyboard choices remain untouched.
+        for (var i = 0; i < Players.Count; i++) Players[i].Index = i;
     }
 }
 
@@ -180,6 +215,10 @@ public static class ConfigStore
     /// </summary>
     public static void Normalize(AppConfig cfg)
     {
+        if (!new[] { "LocalVehicle", "All", "P0Only" }.Contains(cfg.AudioMixMode,
+                StringComparer.OrdinalIgnoreCase))
+            cfg.AudioMixMode = "LocalVehicle";
+
         if (!Detect.IsGameRoot(cfg.GameRoot)) return;
 
         var gameVolume = Path.GetPathRoot(cfg.GameRoot!);
