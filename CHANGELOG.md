@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 1.6.0
+
+- Added a dedicated Mods page that discovers ZIP packages from the normal BeamNG user
+  folder and lets each package target local player profiles, the local BeamMP server,
+  or both.
+- Personal mod sources remain read-only: BeamSplit copies selections into an isolated
+  managed subfolder in each profile and never touches the pinned multiplayer client.
+- Server selections sync into `Resources/Client`; BeamSplit tracks its own files so
+  hand-installed server mods are never removed or overwritten during later syncs.
+- Mod selections refresh automatically before launch, missing source folders preserve
+  existing copies, and the self-test now covers install/remove/source-preservation.
+
+- Let BeamMP's built-in auto-login settle before falling back to guest authentication,
+  preventing two authentication replies from racing during automatic local-server join.
+
 ## 1.5.1
 
 - BeamMP sessions now guest-login and Direct Connect each instance to BeamSplit's local

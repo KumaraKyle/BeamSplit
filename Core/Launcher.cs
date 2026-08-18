@@ -42,6 +42,12 @@ public sealed class Launcher(AppState state)
         // 1. instances
         Instances.EnsureBuilt(cfg, players, log, rebuild);
 
+        // Personal mods live in a BeamSplit-owned subfolder of each profile; selected
+        // BeamMP server mods live in Resources/Client. Sync before the server starts so
+        // it indexes the current set, while leaving the user's source folder untouched.
+        ModManager.Apply(cfg, players, log);
+        _state.Save();
+
         // 2. per-instance input isolation
         if (cfg.Isolate) InputSetup.Deploy(cfg, log);
 

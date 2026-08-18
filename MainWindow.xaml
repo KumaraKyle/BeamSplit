@@ -32,6 +32,7 @@
           <RadioButton x:Name="NavSetup"    Style="{StaticResource NavItem}" Content="Play"     GroupName="nav" IsChecked="True"/>
           <RadioButton x:Name="NavScreens"  Style="{StaticResource NavItem}" Content="Screens"  GroupName="nav"/>
           <RadioButton x:Name="NavServer"   Style="{StaticResource NavItem}" Content="Server"   GroupName="nav"/>
+          <RadioButton x:Name="NavMods"     Style="{StaticResource NavItem}" Content="Mods"     GroupName="nav"/>
           <RadioButton x:Name="NavSession"  Style="{StaticResource NavItem}" Content="Session"  GroupName="nav"/>
           <RadioButton x:Name="NavSettings" Style="{StaticResource NavItem}" Content="Settings" GroupName="nav"/>
         </StackPanel>

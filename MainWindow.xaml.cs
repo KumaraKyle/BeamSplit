@@ -51,6 +51,7 @@ public partial class MainWindow : Window
             StartTour);
         _pages[NavScreens] = () => new ScreensPage(LaunchAsync, RetileRunningAsync);
         _pages[NavServer] = () => new ServerPage();
+        _pages[NavMods] = () => new ModsPage();
         _pages[NavSession] = () => new SessionPage(_session,
             LaunchAsync,
             RetileRunningAsync,
@@ -71,10 +72,13 @@ public partial class MainWindow : Window
             new TourStep(NavServer, "03 · PIT LANE", "Own the shared world",
                 "Server holds the local BeamMP race rules: AuthKey, map, player and vehicle limits, port, privacy and server identity. Solo drivers can ignore this entire page.",
                 "The server still needs a free BeamMP AuthKey even when every player is on this one PC."),
-            new TourStep(NavSession, "04 · INSTRUMENT CLUSTER", "Read the rig like a dashboard",
+            new TourStep(NavMods, "04 · LOADOUT", "Bring the good stuff",
+                "Mods reads ZIPs from your normal BeamNG mods folder without changing it. Choose which packages appear in every local player profile and which ones the BeamMP server distributes.",
+                "Keep personal client-only extras out of Server sends. Server packages are downloaded by every connected player."),
+            new TourStep(NavSession, "05 · INSTRUMENT CLUSTER", "Read the rig like a dashboard",
                 "Session is the live process monitor. Its only dials are actual system load and RAM; running instances and world sync use clearer status cards. Each driver card exposes state, port, pad, PID, memory, load, mod health and the latest launcher/game signal.",
                 "Connected and synced are different: a car can reach its launcher before it has actually appeared in the shared world."),
-            new TourStep(NavSettings, "05 · GARAGE", "Tune once, apply everywhere",
+            new TourStep(NavSettings, "06 · GARAGE", "Tune once, apply everywhere",
                 "Settings controls installation paths, frame caps, graphics, input, audio perspective, output devices, portable updates and maintenance. BeamSplit writes the chosen runtime values into every profile before launch.",
                 "Local vehicle audio avoids doubled cars on shared speakers. Use All only when each player has a separately routed output.")
         ]);

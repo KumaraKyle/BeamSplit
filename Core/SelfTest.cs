@@ -40,6 +40,52 @@ public static class SelfTest
             W($"AppData      : {Paths.AppData}");
             W("");
 
+            W("-- mod manager --");
+            var modProbe = Path.Combine(Path.GetTempPath(), $"BeamSplit-mods-{Guid.NewGuid():N}");
+            try
+            {
+                var source = Path.Combine(modProbe, "source");
+                var instances = Path.Combine(modProbe, "instances");
+                var server = Path.Combine(modProbe, "server");
+                Directory.CreateDirectory(Path.Combine(source, "repo"));
+                Directory.CreateDirectory(Path.Combine(source, "multiplayer"));
+                Directory.CreateDirectory(Path.Combine(server, "Resources", "Client"));
+                await File.WriteAllTextAsync(Path.Combine(source, "repo", "car.zip"), "car");
+                await File.WriteAllTextAsync(Path.Combine(source, "multiplayer", "BeamMP.zip"), "client");
+                await File.WriteAllTextAsync(Path.Combine(server, "Resources", "Client", "hand-installed.zip"), "keep");
+                var probeCfg = new AppConfig
+                {
+                    InstancesDir = instances,
+                    ServerDir = server,
+                    ModsSourceDir = source,
+                    ModsConfigured = true,
+                    UsePlayerMods = true,
+                    PlayerModFiles = [Path.Combine("repo", "car.zip")],
+                    ServerModFiles = [Path.Combine("repo", "car.zip")]
+                };
+                ModManager.Apply(probeCfg, 2);
+                var local0 = Path.Combine(Instances.CurrentProfile(probeCfg, 0), "mods", ModManager.PlayerFolderName, "repo", "car.zip");
+                var local1 = Path.Combine(Instances.CurrentProfile(probeCfg, 1), "mods", ModManager.PlayerFolderName, "repo", "car.zip");
+                var serverCopy = Path.Combine(server, "Resources", "Client", "car.zip");
+                var ignoredMp = ModManager.Discover(source).All(m => !m.Name.Equals("BeamMP.zip", StringComparison.OrdinalIgnoreCase));
+                var installPass = File.Exists(local0) && File.Exists(local1) && File.Exists(serverCopy) && ignoredMp &&
+                                  File.Exists(Path.Combine(server, "Resources", "Client", "hand-installed.zip"));
+                probeCfg.UsePlayerMods = false;
+                probeCfg.PlayerModFiles.Clear();
+                probeCfg.ServerModFiles.Clear();
+                ModManager.Apply(probeCfg, 2);
+                var removePass = !File.Exists(local0) && !File.Exists(local1) && !File.Exists(serverCopy) &&
+                                 File.Exists(Path.Combine(server, "Resources", "Client", "hand-installed.zip")) &&
+                                 File.Exists(Path.Combine(source, "repo", "car.zip"));
+                W($"  isolated sync: {(installPass && removePass ? "PASS" : "FAIL")} (install/remove, source preserved)");
+                if (!installPass || !removePass) throw new InvalidOperationException("managed mod sync regression");
+            }
+            finally
+            {
+                try { if (Directory.Exists(modProbe)) Directory.Delete(modProbe, true); } catch { }
+            }
+            W("");
+
             W("-- audio outputs --");
             var audioDevices = AudioDevices.GetRenderDeviceNames();
             W($"  configured  : {cfg.AudioDevice ?? "Windows default"}");

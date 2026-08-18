@@ -46,6 +46,17 @@ public sealed class AppConfig
     public string? ModZip { get; set; }
     public string InstancesDir { get; set; } = Paths.DefaultInstancesDir;
 
+    // Personal/community mods are read from this folder, then copied into BeamSplit's
+    // own profiles. The source folder is never changed.
+    public string? ModsSourceDir { get; set; }
+    public bool ModsConfigured { get; set; }
+    public bool UsePlayerMods { get; set; }
+    public List<string> PlayerModFiles { get; set; } = [];
+    public List<string> ServerModFiles { get; set; } = [];
+    // Destination names written by BeamSplit into Resources/Client. This lets later
+    // syncs remove only BeamSplit-owned files and leave hand-installed server mods alone.
+    public List<string> ManagedServerModFiles { get; set; } = [];
+
     /// <summary>Instance N uses BasePort + N*2 - see Launcher for why they are spaced.</summary>
     public int BasePort { get; set; } = 4444;
 

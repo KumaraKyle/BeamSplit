@@ -5,7 +5,9 @@ local M = {}
 local serverPort = __BEAMSPLIT_SERVER_PORT__
 local elapsed = 0
 local pollAt = 0
-local lastLoginAt = -100
+-- BeamMP calls autoLogin() immediately after its onLauncherConnected hook. Give that
+-- request time to settle before falling back to guest, so two auth replies cannot race.
+local lastLoginAt = 0
 local lastConnectAt = -100
 
 local function tryJoin()
@@ -38,6 +40,7 @@ local function onUpdate(dt)
 end
 
 local function onLauncherConnected()
+  lastLoginAt = elapsed
   tryJoin()
 end
 
