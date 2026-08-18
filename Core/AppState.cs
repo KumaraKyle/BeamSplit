@@ -50,4 +50,17 @@ public sealed class AppState
     /// <summary>An IProgress that funnels Core progress reports into the log.</summary>
     public IProgress<string> Progress(LogSource source = LogSource.App, string? tag = null)
         => new Progress<string>(s => Log(s, source, tag));
+
+    /// <summary>
+    /// Progress reporter for work already running off the UI thread. Unlike
+    /// Progress&lt;T&gt;, this does not capture or post back to WPF's dispatcher, so a noisy
+    /// launcher cannot queue ahead of the cinematic's render callbacks.
+    /// </summary>
+    public IProgress<string> WorkerProgress(LogSource source = LogSource.App, string? tag = null)
+        => new ImmediateProgress<string>(s => Log(s, source, tag));
+
+    private sealed class ImmediateProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
+    }
 }

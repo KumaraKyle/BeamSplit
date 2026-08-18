@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Release 1 · v1.6.1**
+**Release 1 · v1.6.2**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.
@@ -90,8 +90,10 @@ Launch begins behind a skippable borderless-fullscreen film while every instance
 runs in parallel. One beam splits into a live pane for each player, the panes pulse with
 their individual launch progress, then resolve into the actual monitor and screen-region
 layout when every game window has been created, tiled and stabilized. The film can sustain
-indefinitely on a cold launch and resolves immediately when the real work finishes. Disable
-it or preview it safely under Settings → Session behaviour.
+indefinitely on a cold launch and resolves immediately when the real work finishes. The
+entire launch pipeline runs off the UI thread and console updates stay below render priority,
+so blocked process calls and output bursts cannot stop the sustain-loop motion. Disable it
+or preview it safely under Settings → Session behaviour.
 
 In BeamMP mode, each instance automatically requests guest login and Direct Connects to
 `127.0.0.1` on the port in `ServerConfig.toml` as soon as its launcher is authenticated.

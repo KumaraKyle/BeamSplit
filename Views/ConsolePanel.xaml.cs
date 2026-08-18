@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using BeamSplit.Core;
 
 namespace BeamSplit.Views;
@@ -50,7 +51,11 @@ public partial class ConsolePanel : UserControl
         ScrollIfLocked();
     }
 
-    private void OnLogged(LogLine line) => Dispatcher.BeginInvoke(() => Add(line));
+    // Launchers can emit bursts of output. Normal-priority callbacks run ahead of WPF's
+    // render pass and used to visibly pin the launch film even after the launcher itself
+    // moved off-thread. Console rendering is diagnostic, so keep it below animation/input.
+    private void OnLogged(LogLine line) =>
+        Dispatcher.BeginInvoke(() => Add(line), DispatcherPriority.Background);
 
     private void Add(LogLine line, bool scroll = true)
     {

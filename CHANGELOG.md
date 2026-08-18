@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.6.2
+
+- Moved the complete launch pipeline onto a worker thread so blocking instance repair,
+  mod/input deployment, process startup, or window discovery cannot freeze the launch
+  cinematic's UI-thread render loop.
+- Launch progress now reports directly from the worker into thread-safe telemetry rather
+  than posting every milestone back through WPF's dispatcher.
+- Demoted integrated-console log rendering below animation and input priority, preventing
+  bursts of launcher output from starving cinematic frames.
+
 ## 1.6.1
 
 - Replaced per-player personal mod copies with one Windows directory junction per

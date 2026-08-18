@@ -323,7 +323,12 @@ public partial class MainWindow : Window
             // Start the actual parallel launch first. The cinematic hides its slowest
             // early work rather than delaying it; Session telemetry is already alive
             // underneath and is revealed when the split-screen grid resolves.
-            var launchTask = _launcher.LaunchAsync(_state.Progress());
+            // Launcher has unavoidable synchronous sections: instance repair, DLL/mod
+            // deployment, process inspection and window calls. Starting an async method
+            // on the dispatcher still runs those sections on the dispatcher and freezes
+            // the film whenever Windows blocks one of them. Keep the entire pipeline on
+            // a worker; LaunchTelemetry is explicitly thread-safe.
+            var launchTask = Task.Run(() => _launcher.LaunchAsync(_state.WorkerProgress()));
             if (cfg.LaunchCinematic)
             {
                 await PlayCinematicAsync(players, launchTask);

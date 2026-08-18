@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\BeamSplit.ico</ApplicationIcon>
-    <Version>1.6.1</Version>
+    <Version>1.6.2</Version>
     <Product>BeamSplit</Product>
     <Description>Local splitscreen for BeamNG.drive</Description>
     <Company>BeamSplit</Company>
