@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 
 namespace BeamSplit.Core;
@@ -8,9 +9,10 @@ public sealed record ModPackage(string RelativePath, string FullPath, long Bytes
 }
 
 /// <summary>
-/// Synchronises user-selected ZIP mods into BeamSplit-owned locations. The user's
-/// normal BeamNG mods folder is always read-only, and the pinned BeamMP.zip remains in
-/// mods/multiplayer where neither this manager nor normal personal mods can replace it.
+/// Mounts one existing mod library into each player profile without copying it, and
+/// synchronises user-selected ZIPs into the BeamMP server. BeamSplit never writes to
+/// the mounted source. The pinned BeamMP.zip remains in mods/multiplayer, outside the
+/// shared library.
 /// </summary>
 public static class ModManager
 {
@@ -44,6 +46,10 @@ public static class ModManager
         catch { }
 
         var mods = Path.Combine(userFolder, "mods");
+        var repo = Path.Combine(mods, "repo");
+        // Repository downloads normally live here. Mounting the parent mods folder
+        // would also expose multiplayer/BeamMP.zip to every profile a second time.
+        if (Directory.Exists(repo)) return repo;
         return Directory.Exists(mods) ? mods : null;
     }
 
@@ -69,42 +75,34 @@ public static class ModManager
         if (string.IsNullOrWhiteSpace(cfg.ModsSourceDir) || !Directory.Exists(cfg.ModsSourceDir))
         {
             if (cfg.ModsConfigured)
-                log?.Report("Mods: source folder is unavailable; existing managed copies were left in place.");
+                log?.Report("Mods: source folder is unavailable; existing player links and server packages were left in place.");
             return;
         }
         var discovered = Discover(cfg.ModsSourceDir)
             .ToDictionary(m => Normalize(m.RelativePath), StringComparer.OrdinalIgnoreCase);
-        SyncPlayers(cfg, Math.Max(0, playerCount), discovered, log);
+        SyncPlayers(cfg, Math.Max(0, playerCount), log);
         SyncServer(cfg, discovered, log);
     }
 
-    private static void SyncPlayers(AppConfig cfg, int playerCount,
-        IReadOnlyDictionary<string, ModPackage> discovered, IProgress<string>? log)
+    private static void SyncPlayers(AppConfig cfg, int playerCount, IProgress<string>? log)
     {
-        var selected = cfg.PlayerModFiles.Select(Normalize).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var copied = 0;
+        var source = ResolvePlayerSource(cfg.ModsSourceDir!);
+        var linked = 0;
         for (var i = 0; i < playerCount; i++)
         {
             var target = Path.Combine(Instances.CurrentProfile(cfg, i), "mods", PlayerFolderName);
             CleanOwnedDirectory(target);
             if (!cfg.UsePlayerMods) continue;
-
-            foreach (var relative in selected)
+            try
             {
-                if (!discovered.TryGetValue(relative, out var mod)) continue;
-                var destination = SafeDestination(target, relative);
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                try
-                {
-                    CopyAtomic(mod.FullPath, destination);
-                    copied++;
-                }
-                catch (Exception ex) { log?.Report($"Personal mods: could not copy {relative} to P{i} - {ex.Message}"); }
+                CreateJunction(target, source);
+                linked++;
             }
+            catch (Exception ex) { log?.Report($"Personal mods: could not link the library to P{i} - {ex.Message}"); }
         }
         log?.Report(cfg.UsePlayerMods
-            ? $"Personal mods: synced {selected.Count} package(s) to {playerCount} player profile(s) ({copied} copies)."
-            : "Personal mods: shared profile folder disabled and cleared.");
+            ? $"Personal mods: shared {source} with {linked}/{playerCount} player profile(s), zero copies."
+            : "Personal mods: shared-library links disabled and cleared.");
     }
 
     private static void SyncServer(AppConfig cfg, IReadOnlyDictionary<string, ModPackage> discovered,
@@ -199,10 +197,62 @@ public static class ModManager
 
     private static void CleanOwnedDirectory(string path)
     {
+        var info = new DirectoryInfo(path);
+        try
+        {
+            info.Refresh();
+            if (info.LinkTarget != null)
+            {
+                Directory.Delete(path);
+                return;
+            }
+        }
+        catch { }
         if (!Directory.Exists(path)) return;
         foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
             try { File.SetAttributes(file, FileAttributes.Normal); } catch { }
         try { Directory.Delete(path, true); } catch { }
+    }
+
+    /// <summary>
+    /// If somebody points at the whole mods folder, narrow the player mount to repo so
+    /// multiplayer downloads cannot appear through the shared link. Server discovery
+    /// can still see eligible ZIPs elsewhere in the chosen source.
+    /// </summary>
+    internal static string ResolvePlayerSource(string source)
+    {
+        var root = Path.GetFullPath(source);
+        if (Directory.Exists(Path.Combine(root, "multiplayer")))
+        {
+            var repo = Path.Combine(root, "repo");
+            if (Directory.Exists(repo)) return repo;
+            throw new InvalidOperationException("Choose a mod library that does not contain the multiplayer folder.");
+        }
+        return root;
+    }
+
+    private static void CreateJunction(string link, string target)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        var start = new ProcessStartInfo("cmd.exe")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var arg in new[] { "/d", "/c", "mklink", "/J", link, target })
+            start.ArgumentList.Add(arg);
+        using var process = Process.Start(start) ?? throw new IOException("Could not start the Windows junction tool.");
+        if (!process.WaitForExit(15000))
+        {
+            try { process.Kill(true); } catch { }
+            throw new IOException("Timed out while creating the shared-library junction.");
+        }
+        if (process.ExitCode != 0 || !Directory.Exists(link))
+            throw new IOException(process.StandardError.ReadToEnd().Trim() is { Length: > 0 } error
+                ? error
+                : "Windows could not create the shared-library junction.");
     }
 
     private static void TryDelete(string path, IProgress<string>? log)

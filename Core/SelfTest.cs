@@ -64,11 +64,15 @@ public static class SelfTest
                     ServerModFiles = [Path.Combine("repo", "car.zip")]
                 };
                 ModManager.Apply(probeCfg, 2);
-                var local0 = Path.Combine(Instances.CurrentProfile(probeCfg, 0), "mods", ModManager.PlayerFolderName, "repo", "car.zip");
-                var local1 = Path.Combine(Instances.CurrentProfile(probeCfg, 1), "mods", ModManager.PlayerFolderName, "repo", "car.zip");
+                var mount0 = Path.Combine(Instances.CurrentProfile(probeCfg, 0), "mods", ModManager.PlayerFolderName);
+                var mount1 = Path.Combine(Instances.CurrentProfile(probeCfg, 1), "mods", ModManager.PlayerFolderName);
+                var local0 = Path.Combine(mount0, "car.zip");
+                var local1 = Path.Combine(mount1, "car.zip");
                 var serverCopy = Path.Combine(server, "Resources", "Client", "car.zip");
                 var ignoredMp = ModManager.Discover(source).All(m => !m.Name.Equals("BeamMP.zip", StringComparison.OrdinalIgnoreCase));
-                var installPass = File.Exists(local0) && File.Exists(local1) && File.Exists(serverCopy) && ignoredMp &&
+                var installPass = File.Exists(local0) && File.Exists(local1) &&
+                                  new DirectoryInfo(mount0).LinkTarget != null && new DirectoryInfo(mount1).LinkTarget != null &&
+                                  File.Exists(serverCopy) && ignoredMp &&
                                   File.Exists(Path.Combine(server, "Resources", "Client", "hand-installed.zip"));
                 probeCfg.UsePlayerMods = false;
                 probeCfg.PlayerModFiles.Clear();
@@ -77,7 +81,7 @@ public static class SelfTest
                 var removePass = !File.Exists(local0) && !File.Exists(local1) && !File.Exists(serverCopy) &&
                                  File.Exists(Path.Combine(server, "Resources", "Client", "hand-installed.zip")) &&
                                  File.Exists(Path.Combine(source, "repo", "car.zip"));
-                W($"  isolated sync: {(installPass && removePass ? "PASS" : "FAIL")} (install/remove, source preserved)");
+                W($"  zero-copy sync: {(installPass && removePass ? "PASS" : "FAIL")} (junction/remove, source preserved)");
                 if (!installPass || !removePass) throw new InvalidOperationException("managed mod sync regression");
             }
             finally

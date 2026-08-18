@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.6.1
+
+- Replaced per-player personal mod copies with one Windows directory junction per
+  profile, so every player reads the same library instantly with no duplicate storage.
+- Simplified the Mods page: the library checkbox is the single player-profile switch,
+  while per-package checkboxes now apply only to BeamMP's server-distributed mod pack.
+- Default detection mounts `mods/repo` rather than the parent mods folder, preventing
+  the pinned or downloaded multiplayer packages from appearing through the shared link.
+- Updated the self-test to verify junction creation/removal and source preservation.
+
 ## 1.6.0
 
 - Added a dedicated Mods page that discovers ZIP packages from the normal BeamNG user

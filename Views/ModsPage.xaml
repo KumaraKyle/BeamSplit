@@ -28,19 +28,17 @@
           </Border>
 
           <CheckBox x:Name="ChkPlayers" FontWeight="SemiBold"
-                    Content="Use selected mods in every BeamSplit player profile"/>
+                    Content="Share this mod library with every BeamSplit player profile"/>
           <TextBlock Foreground="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="24,-4,0,12"
-                     Text="BeamSplit copies them into its own managed subfolder. Your normal BeamNG user folder stays untouched, and BeamMP.zip stays isolated."/>
+                     Text="Instant and zero-copy: each profile gets a folder link to the existing library. BeamSplit never writes to the source, and the multiplayer folder stays isolated."/>
 
           <Grid Margin="0,4,0,8">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="105"/>
-              <ColumnDefinition Width="105"/>
             </Grid.ColumnDefinitions>
             <TextBlock Style="{StaticResource Lbl}" Text="PACKAGE"/>
-            <TextBlock Grid.Column="1" Style="{StaticResource Lbl}" Text="ALL PLAYERS" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Style="{StaticResource Lbl}" Text="SERVER SENDS" HorizontalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Style="{StaticResource Lbl}" Text="SERVER SENDS" HorizontalAlignment="Center"/>
           </Grid>
 
           <Border Background="#10131A" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8">
@@ -53,8 +51,6 @@
 
           <Grid Margin="0,12,0,0">
             <StackPanel Orientation="Horizontal">
-              <Button x:Name="BtnAllPlayers" Style="{StaticResource Small}" Content="All players" Margin="0,0,7,0"/>
-              <Button x:Name="BtnNoPlayers" Style="{StaticResource Small}" Content="No players" Margin="0,0,7,0"/>
               <Button x:Name="BtnAllServer" Style="{StaticResource Small}" Content="All server" Margin="0,0,7,0"/>
               <Button x:Name="BtnNoServer" Style="{StaticResource Small}" Content="No server"/>
             </StackPanel>
@@ -75,7 +71,7 @@
           <StackPanel>
             <TextBlock Style="{StaticResource H2}" Text="For every player" Margin="0,0,0,5"/>
             <TextBlock Style="{StaticResource Sub}" Margin="0"
-                       Text="Good for vehicles, maps and gameplay mods each local driver should have. Changes are refreshed automatically before launch."/>
+                       Text="One shared library, mounted into every profile. All players see the same files immediately without duplicate storage."/>
           </StackPanel>
         </Border>
         <Border Grid.Column="2" Style="{StaticResource SoftCard}">

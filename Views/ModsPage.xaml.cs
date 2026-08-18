@@ -18,10 +18,8 @@ public partial class ModsPage : UserControl
         BtnBrowse.Click += (_, _) => Browse();
         BtnDetect.Click += (_, _) => UseDefault();
         BtnScan.Click += (_, _) => Scan();
-        BtnAllPlayers.Click += (_, _) => SetChecks(players: true, value: true);
-        BtnNoPlayers.Click += (_, _) => SetChecks(players: true, value: false);
-        BtnAllServer.Click += (_, _) => SetChecks(players: false, value: true);
-        BtnNoServer.Click += (_, _) => SetChecks(players: false, value: false);
+        BtnAllServer.Click += (_, _) => SetServerChecks(true);
+        BtnNoServer.Click += (_, _) => SetServerChecks(false);
         BtnApply.Click += async (_, _) => await ApplyAsync();
         Loaded += (_, _) => LoadConfig();
     }
@@ -30,6 +28,12 @@ public partial class ModsPage : UserControl
     {
         var cfg = _state.Config;
         cfg.ModsSourceDir ??= ModManager.DetectDefaultSource();
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(cfg.ModsSourceDir))
+                cfg.ModsSourceDir = ModManager.ResolvePlayerSource(cfg.ModsSourceDir);
+        }
+        catch { }
         TxtSource.Text = cfg.ModsSourceDir ?? "";
         ChkPlayers.IsChecked = cfg.UsePlayerMods;
         Scan();
@@ -51,7 +55,7 @@ public partial class ModsPage : UserControl
     {
         var dlg = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "Choose the BeamNG mods folder",
+            Title = "Choose a shared BeamNG mod library",
             Multiselect = false
         };
         if (Directory.Exists(TxtSource.Text)) dlg.InitialDirectory = TxtSource.Text;
@@ -64,21 +68,12 @@ public partial class ModsPage : UserControl
     {
         var packages = ModManager.Discover(TxtSource.Text.Trim());
         var cfg = _state.Config;
-        var playerSet = cfg.PlayerModFiles.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var serverSet = cfg.ServerModFiles.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var firstScan = !cfg.ModsConfigured;
 
         _rows.Clear();
         ModList.Items.Clear();
         foreach (var package in packages)
         {
-            var player = new CheckBox
-            {
-                IsChecked = firstScan || playerSet.Contains(package.RelativePath),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0)
-            };
             var server = new CheckBox
             {
                 IsChecked = serverSet.Contains(package.RelativePath),
@@ -88,7 +83,6 @@ public partial class ModsPage : UserControl
             };
             var grid = new Grid { MinHeight = 43 };
             grid.ColumnDefinitions.Add(new ColumnDefinition());
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(105) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(105) });
             var name = new TextBlock
             {
@@ -110,10 +104,8 @@ public partial class ModsPage : UserControl
             var packageCell = new Grid();
             packageCell.Children.Add(name);
             packageCell.Children.Add(size);
-            Grid.SetColumn(player, 1);
-            Grid.SetColumn(server, 2);
+            Grid.SetColumn(server, 1);
             grid.Children.Add(packageCell);
-            grid.Children.Add(player);
             grid.Children.Add(server);
             var border = new Border
             {
@@ -122,7 +114,7 @@ public partial class ModsPage : UserControl
                 Child = grid
             };
             ModList.Items.Add(border);
-            _rows.Add(new ModRow(package, player, server));
+            _rows.Add(new ModRow(package, server));
         }
 
         LblEmpty.Visibility = packages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -132,7 +124,7 @@ public partial class ModsPage : UserControl
         var total = packages.Sum(p => p.Bytes);
         LblStatus.Text = packages.Count == 0
             ? "Nothing to apply yet."
-            : $"Found {packages.Count} package(s), {Size(total)} total. Tick where each package should go.";
+            : $"Shared library contains {packages.Count} package(s), {Size(total)} total. Tick only the packages the BeamMP server should distribute.";
     }
 
     private async Task ApplyAsync()
@@ -144,11 +136,23 @@ public partial class ModsPage : UserControl
             return;
         }
 
+        try
+        {
+            source = ModManager.ResolvePlayerSource(source);
+            TxtSource.Text = source;
+            Scan();
+        }
+        catch (Exception ex)
+        {
+            LblStatus.Text = ex.Message;
+            return;
+        }
+
         var cfg = _state.Config;
         cfg.ModsSourceDir = source;
         cfg.ModsConfigured = true;
         cfg.UsePlayerMods = ChkPlayers.IsChecked == true;
-        cfg.PlayerModFiles = _rows.Where(r => r.Player.IsChecked == true).Select(r => r.Package.RelativePath).ToList();
+        cfg.PlayerModFiles.Clear(); // legacy v1.6.0 per-package copy selections
         cfg.ServerModFiles = _rows.Where(r => r.Server.IsChecked == true).Select(r => r.Package.RelativePath).ToList();
         _state.Save();
 
@@ -159,8 +163,8 @@ public partial class ModsPage : UserControl
             var playerCount = Math.Max(Instances.CountBuilt(cfg), cfg.Players.Count);
             await Task.Run(() => ModManager.Apply(cfg, playerCount, _state.Progress()));
             _state.Save();
-            LblStatus.Text = $"Applied: {cfg.UsePlayerMods switch { true => cfg.PlayerModFiles.Count, false => 0 }} personal package(s) across {playerCount} profile(s), " +
-                             $"and {cfg.ManagedServerModFiles.Count} server package(s)." +
+            LblStatus.Text = $"Applied: shared library {(cfg.UsePlayerMods ? $"linked to {playerCount} profile(s) with no copies" : "off")}, " +
+                             $"plus {cfg.ManagedServerModFiles.Count} server package(s)." +
                              (ServerConfig.IsRunning() ? " Restart the server to publish its new list." : "");
         }
         catch (Exception ex)
@@ -171,11 +175,9 @@ public partial class ModsPage : UserControl
         finally { BtnApply.IsEnabled = true; }
     }
 
-    private void SetChecks(bool players, bool value)
+    private void SetServerChecks(bool value)
     {
-        foreach (var row in _rows)
-            if (players) row.Player.IsChecked = value;
-            else row.Server.IsChecked = value;
+        foreach (var row in _rows) row.Server.IsChecked = value;
     }
 
     private static string Size(long bytes) => bytes switch
@@ -186,5 +188,5 @@ public partial class ModsPage : UserControl
         _ => $"{bytes} B"
     };
 
-    private sealed record ModRow(ModPackage Package, CheckBox Player, CheckBox Server);
+    private sealed record ModRow(ModPackage Package, CheckBox Server);
 }

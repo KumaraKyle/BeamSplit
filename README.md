@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Release 1 · v1.6.0**
+**Release 1 · v1.6.1**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.
@@ -71,12 +71,12 @@ re-renders if you plug or unplug a display.
 
 **Server** — the BeamMP server settings (name, port, players, cars, map, AuthKey).
 
-**Mods** — points at your normal BeamNG user folder and finds its ZIP mods. Each package
-can be enabled for every local player profile, distributed by the local BeamMP server,
-or both. BeamSplit only reads the source folder, copies personal selections into its own
-`mods\beamsplit-shared` folders, and tracks the files it places in the server's
-`Resources\Client` directory. Hand-installed server mods and the pinned BeamMP client
-are left alone. Restart a running server after changing its distributed packages.
+**Mods** — points at your normal BeamNG `mods\repo` library and mounts that same folder
+inside every player profile using Windows directory junctions. There are no duplicate
+personal mod copies and every local player sees the same library immediately. Per-package
+checkboxes are only for choosing the optional BeamMP server mod pack copied into
+`Resources\Client`. BeamSplit tracks those server files, so hand-installed packages and
+the pinned BeamMP client are left alone. Restart a running server after changing its pack.
 
 **Session** — the launch dashboard opens automatically and replaces the loose launcher
 terminals. Its two car-style gauges show whole-system load and RAM; compact cards show
