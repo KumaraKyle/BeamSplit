@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.7.0
+
+- Added public-release licensing, third-party notices, privacy/security/support policy,
+  compatibility matrix, issue forms, Dependabot, and contributor documentation.
+- Third-party GitHub downloads now require and verify the release asset SHA-256 digest
+  before replacing a cached client, server executable, or devreorder binary.
+- Config writes are atomic and keep a last-known-good backup that startup can restore.
+- BeamMP AuthKeys are masked by default, and Console diagnostics are redacted.
+- Added one-click redacted support bundles and release-safety self-tests.
+- Added Windows CI and tagged-release automation with hashes and build provenance.
+
 ## 1.6.2
 
 - Moved the complete launch pipeline onto a worker thread so blocking instance repair,

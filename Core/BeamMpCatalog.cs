@@ -27,6 +27,7 @@ public static partial class BeamMpCatalog
     {
         [JsonPropertyName("name")] public string Name { get; set; } = "";
         [JsonPropertyName("browser_download_url")] public string Url { get; set; } = "";
+        [JsonPropertyName("digest")] public string? Digest { get; set; }
     }
 
     private sealed class GhRelease
@@ -76,13 +77,19 @@ public static partial class BeamMpCatalog
 
         Directory.CreateDirectory(Paths.ModsDir);
 
-        // already downloaded a matching one?
+        // Only trust caches created after digest verification.
         foreach (var f in Directory.GetFiles(Paths.ModsDir, "*.zip"))
         {
-            if (ModTargetVersion(f) == gameMajor)
+            var sidecar = f + ".sha256";
+            if (File.Exists(sidecar) && ModTargetVersion(f) == gameMajor)
             {
-                Say($"Using cached {Path.GetFileName(f)}");
-                return new MatchResult(f, Path.GetFileNameWithoutExtension(f), lines);
+                try
+                {
+                    await DownloadVerifier.VerifyAsync(f, "sha256:" + (await File.ReadAllTextAsync(sidecar, ct)).Trim(), ct);
+                    Say($"Using verified cache {Path.GetFileName(f)}");
+                    return new MatchResult(f, Path.GetFileNameWithoutExtension(f), lines);
+                }
+                catch { Say($"Ignoring invalid cache {Path.GetFileName(f)}"); }
             }
         }
 
@@ -95,18 +102,29 @@ public static partial class BeamMpCatalog
             ct.ThrowIfCancellationRequested();
             var asset = rel.Assets.FirstOrDefault(a => a.Name.Equals("BeamMP.zip", StringComparison.OrdinalIgnoreCase));
             if (asset is null) continue;
-
-            var tmp = Path.Combine(Path.GetTempPath(), $"BeamMP-{rel.Tag}.zip");
-            if (!File.Exists(tmp))
+            var digest = asset.Digest;
+            if (digest is null)
             {
-                try
+                var checksum = rel.Assets.FirstOrDefault(a =>
+                    a.Name.Equals("BeamMP.zip.sha256", StringComparison.OrdinalIgnoreCase));
+                if (checksum is not null)
                 {
-                    await using var s = await http.GetStreamAsync(asset.Url, ct);
-                    await using var fs = File.Create(tmp);
-                    await s.CopyToAsync(fs, ct);
+                    try
+                    {
+                        var content = await http.GetStringAsync(checksum.Url, ct);
+                        var hash = Regex.Match(content, @"(?i)\b[0-9a-f]{64}\b");
+                        if (hash.Success) digest = "sha256:" + hash.Value;
+                    }
+                    catch (Exception ex) { Say($"  {rel.Tag}: checksum fetch failed ({ex.Message})"); }
                 }
-                catch (Exception ex) { Say($"  {rel.Tag}: download failed ({ex.Message})"); continue; }
             }
+
+            var tmp = Path.Combine(Path.GetTempPath(), $"BeamMP-{Guid.NewGuid():N}-{rel.Tag}.zip");
+            try
+            {
+                await DownloadVerifier.DownloadAsync(http, asset.Url, tmp, digest, ct);
+            }
+            catch (Exception ex) { Say($"  {rel.Tag}: rejected ({ex.Message})"); continue; }
 
             var target = ModTargetVersion(tmp);
             Say($"  {rel.Tag,-9} targets 0.{target}.x");
@@ -115,9 +133,12 @@ public static partial class BeamMpCatalog
             {
                 var dest = Path.Combine(Paths.ModsDir, $"BeamMP-{rel.Tag}.zip");
                 File.Copy(tmp, dest, true);
+                await File.WriteAllTextAsync(dest + ".sha256", DownloadVerifier.RequireSha256(digest), ct);
+                try { File.Delete(tmp); } catch { }
                 Say($"  match: {rel.Tag}");
                 return new MatchResult(dest, rel.Tag, lines);
             }
+            try { File.Delete(tmp); } catch { }
         }
 
         Say($"No BeamMP release targets BeamNG 0.{gameMajor}.x yet.");
@@ -136,9 +157,7 @@ public static partial class BeamMpCatalog
             if (asset is null) { log?.Report("No BeamMP-Server.exe in the latest release."); return null; }
 
             var dest = Path.Combine(Paths.ServerDirDefault, "BeamMP-Server.exe");
-            await using (var s = await http.GetStreamAsync(asset.Url, ct))
-            await using (var fs = File.Create(dest))
-                await s.CopyToAsync(fs, ct);
+            await DownloadVerifier.DownloadAsync(http, asset.Url, dest, asset.Digest, ct);
 
             log?.Report($"Downloaded BeamMP-Server {rel!.Tag}");
             return Paths.ServerDirDefault;

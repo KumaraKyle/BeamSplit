@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text;
 
 namespace BeamSplit.Core;
 
@@ -175,6 +176,7 @@ public static class Paths
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BeamSplit");
 
     public static string ConfigFile => Path.Combine(AppData, "config.json");
+    public static string ConfigBackupFile => Path.Combine(AppData, "config.json.backup");
     public static string BinDir => Path.Combine(AppData, "bin");
     public static string ModsDir => Path.Combine(AppData, "mods");
     public static string ProtoInputDir => Path.Combine(BinDir, "protoinput");
@@ -191,6 +193,8 @@ public static class Paths
 
 public static class ConfigStore
 {
+    private static readonly object SaveGate = new();
+    public static string? LastLoadNotice { get; private set; }
     private static readonly JsonSerializerOptions Opts = new()
     {
         WriteIndented = true,
@@ -200,16 +204,30 @@ public static class ConfigStore
     public static AppConfig Load()
     {
         Paths.EnsureAll();
-        if (File.Exists(Paths.ConfigFile))
+        LastLoadNotice = null;
+        foreach (var candidate in new[] { Paths.ConfigFile, Paths.ConfigBackupFile })
         {
             try
             {
-                var cfg = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(Paths.ConfigFile), Opts);
-                if (cfg != null) { Normalize(cfg); return cfg; }
+                if (!File.Exists(candidate)) continue;
+                var cfg = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(candidate), Opts);
+                if (cfg is null) continue;
+                Normalize(cfg);
+                if (candidate == Paths.ConfigBackupFile)
+                {
+                    LastLoadNotice = "The main config was unreadable; BeamSplit restored its backup.";
+                    // Preserve the known-good backup while atomically replacing only the
+                    // corrupt primary. The old primary is retained for diagnosis.
+                    WriteAtomic(Paths.ConfigFile, Paths.ConfigFile + ".corrupt",
+                        JsonSerializer.Serialize(cfg, Opts));
+                }
+                return cfg;
             }
-            catch { /* corrupt config shouldn't block startup - fall through to defaults */ }
+            catch { /* try the backup, then safe defaults */ }
         }
 
+        if (File.Exists(Paths.ConfigFile) || File.Exists(Paths.ConfigBackupFile))
+            LastLoadNotice = "Both config copies were unreadable; BeamSplit created safe defaults.";
         var fresh = new AppConfig();
         Detect.FillMissing(fresh);
         Normalize(fresh);
@@ -227,6 +245,11 @@ public static class ConfigStore
     /// </summary>
     public static void Normalize(AppConfig cfg)
     {
+        cfg.Players ??= [];
+        cfg.KnownPads ??= [];
+        cfg.PlayerModFiles ??= [];
+        cfg.ServerModFiles ??= [];
+        cfg.ManagedServerModFiles ??= [];
         if (!new[] { "LocalVehicle", "All", "P0Only" }.Contains(cfg.AudioMixMode,
                 StringComparer.OrdinalIgnoreCase))
             cfg.AudioMixMode = "LocalVehicle";
@@ -248,6 +271,31 @@ public static class ConfigStore
     public static void Save(AppConfig cfg)
     {
         Paths.EnsureAll();
-        File.WriteAllText(Paths.ConfigFile, JsonSerializer.Serialize(cfg, Opts));
+        WriteAtomic(Paths.ConfigFile, Paths.ConfigBackupFile, JsonSerializer.Serialize(cfg, Opts));
+    }
+
+    internal static void WriteAtomic(string destination, string backup, string contents)
+    {
+        lock (SaveGate)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            var temp = destination + $".{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using (var fs = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var writer = new StreamWriter(fs, new UTF8Encoding(false)))
+                {
+                    writer.Write(contents);
+                    writer.Flush();
+                    fs.Flush(true);
+                }
+                if (File.Exists(destination)) File.Replace(temp, destination, backup, true);
+                else File.Move(temp, destination);
+            }
+            finally
+            {
+                try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            }
+        }
     }
 }

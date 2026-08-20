@@ -1,9 +1,9 @@
 bin/
 obj/
 dist/
+staging/
 .vs/
 *.user
 *.suo
 *.pdb
 *.log
-

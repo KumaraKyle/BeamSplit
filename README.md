@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Release 1 · v1.6.2**
+**Public beta · v1.7.0**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.
@@ -10,6 +10,20 @@ own screen (or their own slice of one), each with their own controller.
 
 Portable `BeamSplit.exe`, nothing to install, no .NET or PowerShell needed. It doesn't
 modify your BeamNG install; everything it creates lives in its own folders.
+
+BeamSplit is an independent community project. It is not affiliated with or endorsed by
+BeamNG GmbH, BeamMP, Valve, Nucleus Co-op, or the other projects it interoperates with.
+
+![BeamSplit first-run guide](docs/assets/setup-guide.png)
+
+<details>
+<summary>More screenshots</summary>
+
+![Visual screen and controller layout](docs/assets/screens.png)
+
+![Car-dashboard process monitor](docs/assets/session-dashboard.png)
+
+</details>
 
 ---
 
@@ -102,7 +116,7 @@ guest-login and join the local BeamMP server** under Settings → Session behavi
 want to choose a different server manually.
 
 **Console** (`Ctrl+\``) — app, server and every instance's logs in one place, with source
-filters, search and **Copy diagnostics**. There's a command bar too:
+filters, search, redacted **Copy diagnostics**, and **Create support bundle**. There's a command bar too:
 `launch 2 · stop · retile · park · assign 0 1 · server start|stop · logs · guard`.
 
 ---
@@ -162,6 +176,11 @@ the right one on Settings.
 
 Logs and config: `%LOCALAPPDATA%\BeamSplit`.
 
+For reproducible reports, create a redacted support bundle from the Console and follow
+[SUPPORT.md](SUPPORT.md). Compatibility and honest known limits are tracked in
+[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). See [PRIVACY.md](PRIVACY.md),
+[SECURITY.md](SECURITY.md), and [THIRD-PARTY.md](THIRD-PARTY.md) before distribution.
+
 ---
 
 ## Portable updates
@@ -174,3 +193,7 @@ not replaced.
 
 The release repository and release must be public for unauthenticated installs. An
 update without GitHub's SHA-256 digest is shown but will not be installed automatically.
+
+Tagged builds are produced by the public Windows workflow, accompanied by SHA-256 hashes
+and GitHub provenance attestations. Public releases should also carry a trusted Windows
+code signature; unsigned test builds must be labelled as such.

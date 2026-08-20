@@ -25,7 +25,11 @@ public sealed class AppState
     /// <summary>Raised for every new line. The console panel subscribes; so does the Setup log.</summary>
     public event Action<LogLine>? Logged;
 
-    public void Load() => Config = ConfigStore.Load();
+    public void Load()
+    {
+        Config = ConfigStore.Load();
+        if (ConfigStore.LastLoadNotice is { } notice) Log(notice);
+    }
     public void Save() => ConfigStore.Save(Config);
 
     public void Log(string text, LogSource source = LogSource.App, string? tag = null)

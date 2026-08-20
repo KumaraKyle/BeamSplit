@@ -11,15 +11,43 @@ namespace BeamSplit.Core;
 /// </summary>
 public static class SelfTest
 {
-    public static async Task RunAsync(string outFile)
+    public static async Task<bool> RunAsync(string outFile)
     {
         var sb = new StringBuilder();
+        var passed = true;
         void W(string s) => sb.AppendLine(s);
 
         try
         {
             W("BeamSplit self-test");
             W("===================");
+            W("");
+
+            W("-- release safety --");
+            var safetyProbe = Path.Combine(Path.GetTempPath(), $"BeamSplit-safety-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(safetyProbe);
+            try
+            {
+                var config = Path.Combine(safetyProbe, "config.json");
+                var backup = config + ".backup";
+                ConfigStore.WriteAtomic(config, backup, "one");
+                ConfigStore.WriteAtomic(config, backup, "two");
+                var atomic = File.ReadAllText(config) == "two" && File.ReadAllText(backup) == "one";
+                W($"  atomic config : {(atomic ? "PASS" : "FAIL")}");
+                if (!atomic) throw new InvalidOperationException("atomic config regression");
+
+                var payload = Path.Combine(safetyProbe, "payload.bin");
+                await File.WriteAllTextAsync(payload, "BeamSplit");
+                var digest = "sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes("BeamSplit"))).ToLowerInvariant();
+                await DownloadVerifier.VerifyAsync(payload, digest);
+                var redacted = SupportBundle.Redact("AuthKey = \"secret-key\"");
+                var safety = !redacted.Contains("secret-key", StringComparison.Ordinal);
+                W($"  digest check  : PASS");
+                W($"  key redaction : {(safety ? "PASS" : "FAIL")}");
+                if (!safety) throw new InvalidOperationException("support redaction regression");
+            }
+            finally { try { Directory.Delete(safetyProbe, true); } catch { } }
             W("");
 
             var cfg = ConfigStore.Load();
@@ -209,12 +237,15 @@ public static class SelfTest
         }
         catch (Exception ex)
         {
+            passed = false;
             sb.AppendLine();
             sb.AppendLine("SELF-TEST THREW:");
             sb.AppendLine(ex.ToString());
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outFile)!);
+        var outputDir = Path.GetDirectoryName(Path.GetFullPath(outFile));
+        if (outputDir is not null) Directory.CreateDirectory(outputDir);
         await File.WriteAllTextAsync(outFile, sb.ToString());
+        return passed;
     }
 }

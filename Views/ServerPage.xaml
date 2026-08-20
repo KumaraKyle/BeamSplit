@@ -65,9 +65,19 @@
               </ComboBox>
 
               <TextBlock Style="{StaticResource Lbl}" Text="AUTH KEY"/>
-              <TextBox x:Name="TxtAuth"/>
+              <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <PasswordBox x:Name="PwdAuth" Padding="9,7" Background="#11141B"
+                             Foreground="{StaticResource Fg}" BorderBrush="{StaticResource Line}"/>
+                <TextBox x:Name="TxtAuthReveal" Visibility="Collapsed"/>
+                <Button x:Name="BtnRevealAuth" Grid.Column="1" Style="{StaticResource Small}"
+                        Content="Show" Margin="8,0,0,0"/>
+              </Grid>
               <TextBlock x:Name="LblAuthHint" Style="{StaticResource Sub}" Margin="0,0,0,8"
-                         Text="Free from keymaster.beammp.com. Required even for a private LAN server."/>
+                         Text="Stored locally in BeamMP's config — hidden from diagnostics and support bundles."/>
 
               <CheckBox x:Name="ChkPrivate" Content="Private (not listed publicly)"/>
               <CheckBox x:Name="ChkGuests" Content="Allow guests"/>

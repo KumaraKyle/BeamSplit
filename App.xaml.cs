@@ -21,8 +21,8 @@ public partial class App : Application
         {
             var outFile = e.Args.Length > 1 ? e.Args[1] : Path.Combine(Path.GetTempPath(), "beamsplit-selftest.txt");
             NativeAssets.Extract();
-            await SelfTest.RunAsync(outFile);
-            Shutdown(0);
+            var passed = await SelfTest.RunAsync(outFile);
+            Shutdown(passed ? 0 : 1);
             return;
         }
 
