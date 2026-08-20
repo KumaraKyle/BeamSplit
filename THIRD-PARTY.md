@@ -15,7 +15,7 @@ redistributed components.
   <https://github.com/dotnet/runtime>
 
 `xinput1_4.dll` and `dilist.exe` are BeamSplit components built from the C source under
-`native/` and covered by BeamSplit's root MIT licence.
+`native/` and covered by BeamSplit's AGPL-3.0-or-later licence.
 
 ## Downloaded only when requested
 

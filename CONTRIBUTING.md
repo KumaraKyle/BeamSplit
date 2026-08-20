@@ -13,3 +13,6 @@ Keep changes focused, avoid committing runtime profiles or credentials, update t
 changelog for user-visible behavior, and include the relevant self-test or manual test
 result in the pull request. Controller, tiling, and launch changes should be exercised
 with at least two real instances before release.
+
+Unless explicitly agreed otherwise in writing, contributions are submitted under
+BeamSplit's `AGPL-3.0-or-later` licence.
