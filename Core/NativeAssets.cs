@@ -29,7 +29,11 @@ public static class NativeAssets
         "ProtoInputIJP64.dll", "EasyHook.dll", "EasyHook64.dll",
         "EasyHook64Svc.exe", "EasyHookSvc.exe", "ProtoInput-LICENSE.txt"
     ];
+    private static readonly string[] NoticeAssets = ["THIRD-PARTY-NOTICES.txt"];
     private const string DevreorderLatestUrl = "https://api.github.com/repos/briankendall/devreorder/releases/latest";
+    private const string DevreorderPinnedTag = "v1.0.4";
+    private const string DevreorderPinnedAsset = "devreorder_v1.0.4.zip";
+    private const string DevreorderPinnedDigest = "sha256:250114168f29f3e02eccca2db004d51a3759d924816c70accaaba2e20798cc10";
 
     public static string XInputProxy => Path.Combine(Paths.BinDir, "xinput1_4.dll");
     public static string DiList => Path.Combine(Paths.BinDir, "dilist.exe");
@@ -76,6 +80,7 @@ public static class NativeAssets
         }
 
         ExtractGroup(asm, ProtoInputAssets, Paths.ProtoInputDir, log, force);
+        ExtractGroup(asm, NoticeAssets, Paths.AppData, log, force);
     }
 
     private static void ExtractGroup(Assembly asm, IEnumerable<string> names, string folder,
@@ -153,6 +158,7 @@ public static class NativeAssets
             return true;
         }
 
+        string? tmp = null;
         try
         {
             Directory.CreateDirectory(Paths.BinDir);
@@ -168,12 +174,15 @@ public static class NativeAssets
                 return false;
             }
 
-            var tmp = Path.Combine(Path.GetTempPath(), asset.Name);
+            tmp = Path.Combine(Path.GetTempPath(), $"BeamSplit-{Guid.NewGuid():N}-{asset.Name}");
             var tag = rel?.Tag ?? "latest";
             log?.Report($"devreorder: downloading {tag} ...");
-            await using (var s = await http.GetStreamAsync(asset.Url, ct))
-            await using (var fs = File.Create(tmp))
-                await s.CopyToAsync(fs, ct);
+            // v1.0.4 predates GitHub asset digests. Its official ZIP was audited and
+            // pinned here; any future tag must carry GitHub's own digest or is rejected.
+            var digest = asset.Digest ?? (string.Equals(rel?.Tag, DevreorderPinnedTag, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(asset.Name, DevreorderPinnedAsset, StringComparison.OrdinalIgnoreCase)
+                    ? DevreorderPinnedDigest : null);
+            await DownloadVerifier.DownloadAsync(http, asset.Url, tmp, digest, ct);
 
             using var zip = ZipFile.OpenRead(tmp);
             var dll = zip.Entries.FirstOrDefault(e =>
@@ -192,6 +201,10 @@ public static class NativeAssets
         {
             log?.Report($"devreorder download failed: {ex.Message}");
             return false;
+        }
+        finally
+        {
+            try { if (tmp is not null && File.Exists(tmp)) File.Delete(tmp); } catch { }
         }
     }
 
@@ -236,6 +249,7 @@ public static class NativeAssets
     {
         [JsonPropertyName("name")] public string Name { get; set; } = "";
         [JsonPropertyName("browser_download_url")] public string Url { get; set; } = "";
+        [JsonPropertyName("digest")] public string? Digest { get; set; }
     }
 
     private sealed class GhRelease

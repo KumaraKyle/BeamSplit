@@ -1,63 +1,50 @@
 # Third-party components
 
-## Ours (C source in the repo under `native/`)
+The portable release includes `THIRD-PARTY-NOTICES.txt` with the licence notices for
+redistributed components.
 
-- **`Resources/xinput1_4.dll`** — the per-instance XInput proxy. Forwards to the real
-  system DLL but exposes only one physical pad, as user index 0. Source:
-  `native/xinput_filter.c`.
-- **`Resources/dilist.exe`** — lists DirectInput controllers and their instance GUIDs.
-  Needed because identical pads share a name, so GUIDs are the only way to tell
-  them apart. Source: `native/dilist.c`.
+## Included in BeamSplit.exe
 
-Rebuild either with MSYS2/MinGW-w64 (gcc):
+- **Proto Input** by Ilyaki and contributors — MIT.
+  <https://github.com/SplitScreen-Me/splitscreenme-protoInput>
+- **EasyHook** — MIT. Redistributed as the runtime used by Proto Input.
+  <https://github.com/EasyHook/EasyHook>
+- **SkiaSharp** — MIT. Used to draw the launch film.
+  <https://github.com/mono/SkiaSharp>
+- **.NET runtime / System.Management** — MIT. The portable build is self-contained.
+  <https://github.com/dotnet/runtime>
 
-```
-gcc -O2 -shared -o Resources/xinput1_4.dll native/xinput_filter.c -Wl,--kill-at -lkernel32 -luser32
-gcc -O2 -o Resources/dilist.exe native/dilist.c -ldinput8 -ldxguid -lole32 -luuid
-```
+`xinput1_4.dll` and `dilist.exe` are BeamSplit components built from the C source under
+`native/` and covered by BeamSplit's root MIT licence.
 
-Note: gcc fails silently with exit 1 if `ucrt64\bin` isn't on PATH.
+## Downloaded only when requested
 
-## Not ours
+- **devreorder** by Brian Kendall hides other DirectInput devices per instance.
+  <https://github.com/briankendall/devreorder> BeamSplit can copy an existing Nucleus
+  Co-op copy or download the official release. It extracts only `x64/dinput8.dll` into
+  BeamSplit's app-data folder. It is not bundled in the BeamSplit release.
+- **BeamMP client and server** — AGPL-3.0-or-later.
+  <https://github.com/BeamMP/BeamMP> and <https://github.com/BeamMP/BeamMP-Server>
+  BeamSplit downloads official release assets and selects a client compatible with the
+  installed BeamNG version. It then adds BeamSplit-authored auto-join and audio-isolation
+  Lua files to the local client ZIP. BeamMP is not bundled in the BeamSplit release.
 
-- **Proto Input** — per-process input and simulated-focus hooks by Ilyaki and
-  contributors. <https://github.com/SplitScreen-Me/splitscreenme-protoInput>
-  BeamSplit embeds its 64-bit loader/hooks and their EasyHook runtime dependencies.
-  Proto Input is MIT licensed; its full notice is embedded in `BeamSplit.exe` and
-  extracted to `%LOCALAPPDATA%\BeamSplit\bin\protoinput\ProtoInput-LICENSE.txt`.
+GitHub's SHA-256 asset digest is required and checked before a requested third-party
+download is installed. The older devreorder v1.0.4 asset predates that GitHub field, so
+BeamSplit pins its audited official ZIP hash and rejects a different tag or payload.
 
-- **EasyHook** — Windows API hooking runtime used by Proto Input.
-  <https://github.com/EasyHook/EasyHook> (MIT licence). Its binaries are used only
-  as part of Proto Input injection.
+## Not included
 
-- **devreorder** (`bin\dinput8.dll`) — DirectInput device hider/reorderer by
-  Brian Kendall. <https://github.com/briankendall/devreorder>
-  Used per instance to hide the other players' pads from DirectInput
-  enumeration. If it's missing, BeamSplit still separates pads through the
-  XInput proxy; the game just also lists the other controllers. Setup can copy
-  it from a Nucleus Co-op install, or you can download it yourself.
-  Distributed under its own licence — check the repo before redistributing.
+BeamNG.drive is commercial software by BeamNG GmbH. BeamSplit neither includes nor
+licenses it and does not provide DRM or ownership bypasses. BeamSplit is an independent
+community project and is not affiliated with, endorsed by, or sponsored by BeamNG GmbH,
+BeamMP, Valve, Proto Input, EasyHook, devreorder, or Nucleus Co-op. Product names and
+trademarks belong to their respective owners.
 
-- **BeamMP** — client mod and server, by the BeamMP team (AGPL-3.0-or-later).
-  <https://github.com/BeamMP/BeamMP> · <https://github.com/BeamMP/BeamMP-Server>
-  BeamSplit does **not** bundle these. Setup downloads them from the official
-  GitHub releases at your request. The client mod is installed unmodified — the
-  version-matching picks the release built for your game, rather than patching
-  a newer one.
+## Local changes and removal
 
-- **BeamNG.drive** — the game itself, by BeamNG GmbH. Not included, not
-  modified. BeamSplit only creates junctions/hardlinks to it and writes to its
-  own instance folders.
-
-## What BeamSplit changes on your system
-
-Nothing outside this folder, with two exceptions worth knowing:
-
-1. Per-instance profiles live in `instances\`, not in your normal BeamNG
-   profile, so your single-player settings and mods are untouched.
-2. If you download the BeamMP server through Setup, it lands in `server\` here.
-
-Uninstalling is deleting BeamSplit.exe plus %LOCALAPPDATA%\BeamSplit. Instance folders contain junctions to your
-game install — delete them with the app (Advanced tab) or with
-`cmd /c rmdir` on the junctions, **not** with a tool that follows links, or you
-risk deleting into the real install.
+Configuration/logs/default server data live under `%LOCALAPPDATA%\BeamSplit`. Instance
+folders live at the location selected in Settings, often on the game volume. Personal
+mods may be exposed through directory junctions; server packages are copied separately.
+Use BeamSplit's maintenance action to remove instances safely. Do not use a deletion tool
+that follows directory junctions into the original game or mod folder.

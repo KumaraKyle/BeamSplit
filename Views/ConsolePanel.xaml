@@ -11,15 +11,20 @@
 
     <!-- filters + tools -->
     <Grid Grid.Row="0" Margin="0,0,0,8">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,320,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,12,0">
         <StackPanel x:Name="Chips" Orientation="Horizontal"/>
       </ScrollViewer>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
         <TextBox x:Name="TxtSearch" Width="130" Margin="0,0,8,0" Padding="7,4"
                  ToolTip="filter (regex supported)"/>
         <ToggleButton x:Name="BtnLock" Content="Scroll" Margin="0,0,8,0" IsChecked="True"
                       Background="Transparent" Foreground="#8B93A7" BorderThickness="0" Padding="8,4"
                       ToolTip="auto-scroll"/>
+        <Button x:Name="BtnBundle" Style="{StaticResource Small}" Content="Create support bundle" Margin="0,0,8,0"/>
         <Button x:Name="BtnCopy" Style="{StaticResource Small}" Content="Copy diagnostics" Margin="0,0,8,0"/>
         <Button x:Name="BtnClear" Style="{StaticResource Small}" Content="Clear"/>
       </StackPanel>

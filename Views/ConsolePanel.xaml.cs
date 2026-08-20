@@ -35,6 +35,7 @@ public partial class ConsolePanel : UserControl
 
         BtnClear.Click += (_, _) => { _buffer.Clear(); Lines.Items.Clear(); };
         BtnCopy.Click += (_, _) => CopyDiagnostics();
+        BtnBundle.Click += (_, _) => CreateSupportBundle();
         TxtSearch.TextChanged += (_, _) => ApplyFilter();
 
         TxtCmd.TextChanged += (_, _) => Hint.Visibility = TxtCmd.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -184,7 +185,18 @@ public partial class ConsolePanel : UserControl
         sb.AppendLine("--- recent log ---");
         foreach (var l in _buffer.TakeLast(300)) sb.AppendLine(l.ToString());
 
-        try { Clipboard.SetText(sb.ToString()); _state.Log("Diagnostics copied to the clipboard."); }
+        try { Clipboard.SetText(SupportBundle.Redact(sb.ToString(), cfg)); _state.Log("Redacted diagnostics copied to the clipboard."); }
         catch (Exception ex) { _state.Log($"Clipboard failed: {ex.Message}"); }
+    }
+
+    private void CreateSupportBundle()
+    {
+        try
+        {
+            var path = SupportBundle.Create(_state.Config, _buffer);
+            Clipboard.SetText(path);
+            _state.Log($"Support bundle created; path copied to clipboard: {path}");
+        }
+        catch (Exception ex) { _state.Log($"Support bundle failed: {ex.Message}"); }
     }
 }

@@ -1,0 +1,23 @@
+name: Controller compatibility
+description: Share a working or failing controller configuration
+title: "[Controller] "
+labels: [compatibility]
+body:
+  - type: input
+    id: model
+    attributes: { label: Exact controller model and connection mode }
+    validations: { required: true }
+  - type: input
+    id: count
+    attributes: { label: Number of controllers and players }
+    validations: { required: true }
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options: [Works reliably, Partly works, Does not work]
+    validations: { required: true }
+  - type: textarea
+    id: detail
+    attributes: { label: Windows version, focus behavior, assignments and details }
+    validations: { required: true }

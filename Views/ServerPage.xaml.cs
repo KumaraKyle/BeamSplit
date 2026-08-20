@@ -26,6 +26,7 @@ public partial class ServerPage : UserControl
             if (!string.IsNullOrWhiteSpace(_state.Config.ServerDir) && Directory.Exists(_state.Config.ServerDir))
                 Process.Start("explorer.exe", _state.Config.ServerDir);
         };
+        BtnRevealAuth.Click += (_, _) => ToggleAuthVisibility();
 
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(2) };
         _timer.Tick += (_, _) => RefreshLive();
@@ -80,7 +81,7 @@ public partial class ServerPage : UserControl
         TxtMaxPlayers.Text = s.GetValueOrDefault("MaxPlayers", "2");
         TxtMaxCars.Text = s.GetValueOrDefault("MaxCars", "2");
         TxtDesc.Text = s.GetValueOrDefault("Description", "");
-        TxtAuth.Text = s.GetValueOrDefault("AuthKey", "");
+        SetAuth(s.GetValueOrDefault("AuthKey", ""));
         ChkPrivate.IsChecked = s.GetValueOrDefault("Private", "true") == "true";
         ChkGuests.IsChecked = s.GetValueOrDefault("AllowGuests", "true") == "true";
         ChkDebug.IsChecked = s.GetValueOrDefault("Debug", "false") == "true";
@@ -131,7 +132,7 @@ public partial class ServerPage : UserControl
 
     private void SetFormEnabled(bool on)
     {
-        foreach (var c in new Control[] { TxtName, TxtPort, TxtMaxPlayers, TxtMaxCars, TxtDesc, TxtAuth, CbMap, ChkPrivate, ChkGuests, ChkDebug, BtnSave, BtnStart, BtnStop })
+        foreach (var c in new Control[] { TxtName, TxtPort, TxtMaxPlayers, TxtMaxCars, TxtDesc, PwdAuth, TxtAuthReveal, BtnRevealAuth, CbMap, ChkPrivate, ChkGuests, ChkDebug, BtnSave, BtnStart, BtnStop })
             c.IsEnabled = on;
     }
 
@@ -144,7 +145,7 @@ public partial class ServerPage : UserControl
             ["MaxPlayers"] = TxtMaxPlayers.Text,
             ["MaxCars"] = TxtMaxCars.Text,
             ["Description"] = TxtDesc.Text,
-            ["AuthKey"] = TxtAuth.Text,
+            ["AuthKey"] = GetAuth(),
             ["Map"] = (CbMap.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "",
             ["Private"] = ChkPrivate.IsChecked == true ? "true" : "false",
             ["AllowGuests"] = ChkGuests.IsChecked == true ? "true" : "false",
@@ -157,6 +158,33 @@ public partial class ServerPage : UserControl
             if (ServerConfig.HasAuthKey(_state.Config)) HideWarning();
         }
         else _state.Log("Could not write ServerConfig.toml.");
+    }
+
+    private string GetAuth() => TxtAuthReveal.Visibility == Visibility.Visible
+        ? TxtAuthReveal.Text : PwdAuth.Password;
+
+    private void SetAuth(string value)
+    {
+        PwdAuth.Password = value;
+        TxtAuthReveal.Text = value;
+    }
+
+    private void ToggleAuthVisibility()
+    {
+        if (TxtAuthReveal.Visibility == Visibility.Visible)
+        {
+            PwdAuth.Password = TxtAuthReveal.Text;
+            TxtAuthReveal.Visibility = Visibility.Collapsed;
+            PwdAuth.Visibility = Visibility.Visible;
+            BtnRevealAuth.Content = "Show";
+        }
+        else
+        {
+            TxtAuthReveal.Text = PwdAuth.Password;
+            PwdAuth.Visibility = Visibility.Collapsed;
+            TxtAuthReveal.Visibility = Visibility.Visible;
+            BtnRevealAuth.Content = "Hide";
+        }
     }
 
     private void RefreshLive()
