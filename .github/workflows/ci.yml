@@ -27,9 +27,12 @@ jobs:
       - name: Shipping self-test
         shell: pwsh
         run: |
-          & ./staging/publish/BeamSplit.exe --selftest ./staging/selftest.txt
-          if ($LASTEXITCODE -ne 0) { Get-Content ./staging/selftest.txt; exit $LASTEXITCODE }
-          Get-Content ./staging/selftest.txt
+          $output = Join-Path (Resolve-Path ./staging) 'selftest.txt'
+          $process = Start-Process -FilePath ./staging/publish/BeamSplit.exe `
+            -ArgumentList @('--selftest', $output) -PassThru -Wait -WindowStyle Hidden
+          if (Test-Path $output) { Get-Content $output }
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+          if (-not (Test-Path $output)) { throw 'BeamSplit self-test produced no report.' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: BeamSplit-ci-${{ github.sha }}

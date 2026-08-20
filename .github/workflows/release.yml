@@ -23,8 +23,12 @@ jobs:
       - name: Self-test and package
         shell: pwsh
         run: |
-          & ./staging/publish/BeamSplit.exe --selftest ./staging/selftest.txt
-          if ($LASTEXITCODE -ne 0) { Get-Content ./staging/selftest.txt; exit $LASTEXITCODE }
+          $output = Join-Path (Resolve-Path ./staging) 'selftest.txt'
+          $process = Start-Process -FilePath ./staging/publish/BeamSplit.exe `
+            -ArgumentList @('--selftest', $output) -PassThru -Wait -WindowStyle Hidden
+          if (Test-Path $output) { Get-Content $output }
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+          if (-not (Test-Path $output)) { throw 'BeamSplit self-test produced no report.' }
           $files = @('BeamSplit.exe','README.md','LICENSE','PRIVACY.md','THIRD-PARTY.md','THIRD-PARTY-NOTICES.txt')
           New-Item -ItemType Directory -Force ./staging/package | Out-Null
           Copy-Item ./staging/publish/BeamSplit.exe ./staging/package/
