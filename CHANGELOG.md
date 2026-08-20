@@ -4,6 +4,9 @@
 
 ## 1.7.0
 
+- Replaced the initial zero-download MIT release with AGPL-3.0-or-later: anyone who
+  distributes a modified BeamSplit must provide the corresponding source, and modified
+  network-accessible versions must offer source to their users.
 - Added public-release licensing, third-party notices, privacy/security/support policy,
   compatibility matrix, issue forms, Dependabot, and contributor documentation.
 - Third-party GitHub downloads now require and verify the release asset SHA-256 digest

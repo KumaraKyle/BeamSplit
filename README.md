@@ -14,6 +14,10 @@ modify your BeamNG install; everything it creates lives in its own folders.
 BeamSplit is an independent community project. It is not affiliated with or endorsed by
 BeamNG GmbH, BeamMP, Valve, Nucleus Co-op, or the other projects it interoperates with.
 
+BeamSplit is free software licensed under **AGPL-3.0-or-later**. Distributing a modified
+copy requires making its corresponding source available under the same licence. Modified
+versions offered to users over a network must offer those users their source as well.
+
 ![BeamSplit first-run guide](docs/assets/setup-guide.png)
 
 <details>
@@ -197,3 +201,10 @@ update without GitHub's SHA-256 digest is shown but will not be installed automa
 Tagged builds are produced by the public Windows workflow, accompanied by SHA-256 hashes
 and GitHub provenance attestations. Public releases should also carry a trusted Windows
 code signature; unsigned test builds must be labelled as such.
+
+## Licence
+
+BeamSplit application code and its native input helpers are licensed under
+[`AGPL-3.0-or-later`](LICENSE). Redistributed dependencies retain their own licences and
+notices in [`THIRD-PARTY-NOTICES.txt`](THIRD-PARTY-NOTICES.txt). BeamMP and devreorder
+are downloaded separately and remain governed by their respective projects.

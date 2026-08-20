@@ -15,6 +15,9 @@
     <Product>BeamSplit</Product>
     <Description>Local splitscreen for BeamNG.drive</Description>
     <Company>BeamSplit</Company>
+    <Copyright>Copyright (c) 2026 KumaraKyle</Copyright>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/KumaraKyle/BeamSplit</RepositoryUrl>
     <!-- single-file publish: the native proxy must be extractable, since the game
          loads it by path from its own Bin64 -->
     <PublishSingleFile>true</PublishSingleFile>
