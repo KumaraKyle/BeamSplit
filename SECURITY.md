@@ -12,3 +12,10 @@ BeamSplit downloads release assets only from the official GitHub repositories na
 `THIRD-PARTY.md`. Downloads must carry GitHub's SHA-256 asset digest or an explicitly
 audited pinned hash and pass verification before BeamSplit installs them. Application updates also retain the previous executable
 for rollback.
+
+Community mods are a separate, explicit feature. BeamSplit browses only public resource
+pages on `www.beamng.com`, follows downloads initiated there, verifies that the result is
+a readable ZIP with safe archive paths, and installs it atomically into its managed
+repository folder. Repository mods can contain Lua or other content executed by BeamNG;
+users should still review the author, description, dependencies and permissions before
+downloading.

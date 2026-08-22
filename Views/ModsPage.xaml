@@ -9,6 +9,56 @@
           <TextBlock Style="{StaticResource Sub}"
                      Text="Bring your normal BeamNG mods into every player profile, and choose which ZIPs the local BeamMP server sends to players."/>
 
+          <Expander x:Name="RepoExpander" Header="Browse official BeamNG repository"
+                    IsExpanded="False" FontWeight="SemiBold"
+                    Background="#111722" BorderBrush="{StaticResource Accent}" BorderThickness="1"
+                    Padding="14" Margin="0,0,0,15">
+            <StackPanel>
+              <Grid>
+                <StackPanel>
+                  <TextBlock Style="{StaticResource H2}" Text="Official BeamNG repository"/>
+                  <TextBlock Style="{StaticResource Sub}" Margin="0"
+                             Text="Browse and download community mods from beamng.com. Downloads stay in BeamSplit's managed library; your existing mod folder remains untouched."/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                  <Button x:Name="BtnRepoFolder" Style="{StaticResource Small}" Content="Downloads folder" Margin="0,0,7,0"/>
+                  <Button x:Name="BtnRepoOpenSite" Style="{StaticResource Small}" Content="Open beamng.com"/>
+                </StackPanel>
+              </Grid>
+
+              <Grid Margin="0,12,0,8">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/>
+                  <ColumnDefinition Width="220"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="TxtRepoSearch" ToolTip="Filter the loaded page by title, author, category, or description"/>
+                <ComboBox x:Name="CbRepoOrder" Grid.Column="2" SelectedIndex="0">
+                  <ComboBoxItem Content="Latest updates"/>
+                  <ComboBoxItem Content="Most downloaded"/>
+                  <ComboBoxItem Content="Top rated"/>
+                  <ComboBoxItem Content="Title"/>
+                </ComboBox>
+                <Button x:Name="BtnRepoRefresh" Grid.Column="4" Style="{StaticResource Small}" Content="Refresh"/>
+              </Grid>
+
+              <Grid Margin="0,0,0,8">
+                <TextBlock x:Name="LblRepoStatus" Foreground="{StaticResource Muted}" VerticalAlignment="Center"
+                           Text="Loading the official repository…"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                  <Button x:Name="BtnRepoPrev" Style="{StaticResource Small}" Content="‹ Previous" Margin="0,0,7,0"/>
+                  <Button x:Name="BtnRepoNext" Style="{StaticResource Small}" Content="Next ›"/>
+                </StackPanel>
+              </Grid>
+              <ProgressBar x:Name="RepoProgress" Style="{StaticResource GlowProgress}" Height="6"
+                           IsIndeterminate="True" Margin="0,0,0,8"/>
+              <Border Background="#0D1118" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8">
+                <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <ItemsControl x:Name="RepoList"/>
+                </ScrollViewer>
+              </Border>
+            </StackPanel>
+          </Expander>
+
           <Border Background="#111722" CornerRadius="9" Padding="13" Margin="0,0,0,15">
             <Grid>
               <Grid.ColumnDefinitions>
@@ -31,6 +81,10 @@
                     Content="Share this mod library with every BeamSplit player profile"/>
           <TextBlock Foreground="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="24,-4,0,12"
                      Text="Instant and zero-copy: each profile gets a folder link to the existing library. BeamSplit never writes to the source, and the multiplayer folder stays isolated."/>
+          <CheckBox x:Name="ChkRepo" FontWeight="SemiBold"
+                    Content="Enable mods downloaded from the official repository for every player profile"/>
+          <TextBlock Foreground="{StaticResource Muted}" FontSize="11.5" TextWrapping="Wrap" Margin="24,-4,0,12"
+                     Text="Repository downloads live in BeamSplit's managed data folder and are linked into every profile with no duplicate copies."/>
 
           <Grid Margin="0,4,0,8">
             <Grid.ColumnDefinitions>
@@ -42,11 +96,14 @@
           </Grid>
 
           <Border Background="#10131A" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8">
-            <StackPanel>
+            <Grid>
               <TextBlock x:Name="LblEmpty" Text="Choose a folder and scan for mod ZIPs."
                          Foreground="{StaticResource Muted}" Padding="14"/>
-              <ItemsControl x:Name="ModList"/>
-            </StackPanel>
+              <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="ModList"/>
+              </ScrollViewer>
+            </Grid>
           </Border>
 
           <Grid Margin="0,12,0,0">

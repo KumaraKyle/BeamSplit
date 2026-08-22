@@ -459,7 +459,7 @@ public sealed class Launcher(AppState state)
         return Tiling.WindowForInstance(cfg, instance, windows);
     }
 
-    public void StopAll(IProgress<string>? log = null)
+    public void StopSession(IProgress<string>? log = null)
     {
         foreach (var name in new[] { "BeamMP-Launcher", "BeamNG.drive", "BeamNG.drive.x64" })
         {
@@ -470,5 +470,12 @@ public sealed class Launcher(AppState state)
         }
         _gameProcesses.Clear();
         log?.Report("Stopped all instances and launchers.");
+    }
+
+    public void StopAll(IProgress<string>? log = null)
+    {
+        StopSession(log);
+        ServerConfig.Stop();
+        log?.Report("Stopped the BeamMP server and the entire session.");
     }
 }

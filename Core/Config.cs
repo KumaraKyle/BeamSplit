@@ -52,6 +52,7 @@ public sealed class AppConfig
     public string? ModsSourceDir { get; set; }
     public bool ModsConfigured { get; set; }
     public bool UsePlayerMods { get; set; }
+    public bool UseRepositoryMods { get; set; } = true;
     public List<string> PlayerModFiles { get; set; } = []; // v1.6.0 migration only
     public List<string> ServerModFiles { get; set; } = [];
     // Destination names written by BeamSplit into Resources/Client. This lets later

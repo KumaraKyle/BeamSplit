@@ -15,7 +15,10 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
               <Button x:Name="BtnLaunch" Style="{StaticResource Primary}" Content="Launch" Margin="0,0,8,0"/>
               <Button x:Name="BtnRetile" Style="{StaticResource Small}" Content="Re-tile" Margin="0,0,8,0"/>
-              <Button x:Name="BtnStop" Style="{StaticResource Small}" Content="Stop all"/>
+              <Button x:Name="BtnStopSession" Style="{StaticResource Small}" Content="Stop session" Margin="0,0,8,0"
+                      ToolTip="Stop every BeamNG instance and launcher, but leave the local BeamMP server running."/>
+              <Button x:Name="BtnStopAll" Style="{StaticResource Small}" Content="Stop all"
+                      ToolTip="Stop every BeamNG instance, launcher, and the local BeamMP server."/>
             </StackPanel>
           </Grid>
 

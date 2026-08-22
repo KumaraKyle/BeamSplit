@@ -17,6 +17,9 @@ public sealed record ModPackage(string RelativePath, string FullPath, long Bytes
 public static class ModManager
 {
     public const string PlayerFolderName = "beamsplit-shared";
+    public const string RepositoryFolderName = "beamsplit-repository";
+    public const string RepositoryKeyPrefix = "Official Repository";
+    public static string RepositorySource => Path.Combine(Paths.ModsDir, "repository");
 
     public static string? DetectDefaultSource()
     {
@@ -70,15 +73,39 @@ public static class ModManager
         catch { return []; }
     }
 
+    public static IReadOnlyList<ModPackage> DiscoverConfigured(AppConfig cfg, string? sourceOverride = null)
+    {
+        var source = sourceOverride ?? cfg.ModsSourceDir;
+        var packages = new List<ModPackage>();
+        if (!string.IsNullOrWhiteSpace(source) && Directory.Exists(source))
+            packages.AddRange(Discover(source));
+
+        var sourceFull = !string.IsNullOrWhiteSpace(source) && Directory.Exists(source)
+            ? Path.GetFullPath(source)
+            : null;
+        if (Directory.Exists(RepositorySource) &&
+            !string.Equals(sourceFull, Path.GetFullPath(RepositorySource), StringComparison.OrdinalIgnoreCase))
+        {
+            packages.AddRange(Discover(RepositorySource).Select(package => new ModPackage(
+                Path.Combine(RepositoryKeyPrefix, package.RelativePath),
+                package.FullPath,
+                package.Bytes)));
+        }
+        return packages.OrderBy(package => package.RelativePath, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     public static void Apply(AppConfig cfg, int playerCount, IProgress<string>? log = null)
     {
-        if (string.IsNullOrWhiteSpace(cfg.ModsSourceDir) || !Directory.Exists(cfg.ModsSourceDir))
+        var personalAvailable = !string.IsNullOrWhiteSpace(cfg.ModsSourceDir) && Directory.Exists(cfg.ModsSourceDir);
+        var repositoryAvailable = Directory.Exists(RepositorySource) && Discover(RepositorySource).Count > 0;
+        if (!personalAvailable && !repositoryAvailable)
         {
+            SyncPlayers(cfg, Math.Max(0, playerCount), log);
             if (cfg.ModsConfigured)
-                log?.Report("Mods: source folder is unavailable; existing player links and server packages were left in place.");
+                log?.Report("Mods: source folder is unavailable; stale player links were cleared and existing server packages were left in place.");
             return;
         }
-        var discovered = Discover(cfg.ModsSourceDir)
+        var discovered = DiscoverConfigured(cfg)
             .ToDictionary(m => Normalize(m.RelativePath), StringComparer.OrdinalIgnoreCase);
         SyncPlayers(cfg, Math.Max(0, playerCount), log);
         SyncServer(cfg, discovered, log);
@@ -86,23 +113,43 @@ public static class ModManager
 
     private static void SyncPlayers(AppConfig cfg, int playerCount, IProgress<string>? log)
     {
-        var source = ResolvePlayerSource(cfg.ModsSourceDir!);
-        var linked = 0;
+        var personalSource = !string.IsNullOrWhiteSpace(cfg.ModsSourceDir) && Directory.Exists(cfg.ModsSourceDir)
+            ? ResolvePlayerSource(cfg.ModsSourceDir)
+            : null;
+        var repositoryReady = Directory.Exists(RepositorySource) && Discover(RepositorySource).Count > 0;
+        var personalLinked = 0;
+        var repositoryLinked = 0;
         for (var i = 0; i < playerCount; i++)
         {
-            var target = Path.Combine(Instances.CurrentProfile(cfg, i), "mods", PlayerFolderName);
-            CleanOwnedDirectory(target);
-            if (!cfg.UsePlayerMods) continue;
-            try
+            var personalTarget = Path.Combine(Instances.CurrentProfile(cfg, i), "mods", PlayerFolderName);
+            var repositoryTarget = Path.Combine(Instances.CurrentProfile(cfg, i), "mods", RepositoryFolderName);
+            CleanOwnedDirectory(personalTarget);
+            CleanOwnedDirectory(repositoryTarget);
+            if (cfg.UsePlayerMods && personalSource is not null)
             {
-                CreateJunction(target, source);
-                linked++;
+                try
+                {
+                    CreateJunction(personalTarget, personalSource);
+                    personalLinked++;
+                }
+                catch (Exception ex) { log?.Report($"Personal mods: could not link the library to P{i} - {ex.Message}"); }
             }
-            catch (Exception ex) { log?.Report($"Personal mods: could not link the library to P{i} - {ex.Message}"); }
+            if (cfg.UseRepositoryMods && repositoryReady)
+            {
+                try
+                {
+                    CreateJunction(repositoryTarget, RepositorySource);
+                    repositoryLinked++;
+                }
+                catch (Exception ex) { log?.Report($"Official repository mods: could not link the library to P{i} - {ex.Message}"); }
+            }
         }
         log?.Report(cfg.UsePlayerMods
-            ? $"Personal mods: shared {source} with {linked}/{playerCount} player profile(s), zero copies."
+            ? $"Personal mods: shared {personalSource ?? "(source unavailable)"} with {personalLinked}/{playerCount} player profile(s), zero copies."
             : "Personal mods: shared-library links disabled and cleared.");
+        log?.Report(cfg.UseRepositoryMods
+            ? $"Official repository mods: linked to {repositoryLinked}/{playerCount} player profile(s)."
+            : "Official repository mods: profile links disabled and cleared.");
     }
 
     private static void SyncServer(AppConfig cfg, IReadOnlyDictionary<string, ModPackage> discovered,
