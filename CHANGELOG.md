@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.9.2
 
 - Disabled BeamNG's special inactive-window FPS limiter in every multi-instance
   profile, preventing the unfocused player from dropping to a few FPS on affected
