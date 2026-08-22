@@ -48,6 +48,10 @@ public static class SelfTest
                 W($"  digest check  : PASS");
                 W($"  key redaction : {(safety ? "PASS" : "FAIL")}");
                 if (!safety) throw new InvalidOperationException("support redaction regression");
+                var rootMatch = Instances.SamePath(@"C:\Games\BeamNG\", @"c:\games\beamng") &&
+                                !Instances.SamePath(@"C:\Games\BeamNG-old", @"C:\Games\BeamNG");
+                W($"  clone roots   : {(rootMatch ? "PASS" : "FAIL")} (moved-install detection)");
+                if (!rootMatch) throw new InvalidOperationException("instance source-root regression");
             }
             finally { try { Directory.Delete(safetyProbe, true); } catch { } }
             W("");

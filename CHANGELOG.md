@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.1
+
+- Fixed an immediate multi-instance startup crash after the configured BeamNG install
+  moved or changed. BeamSplit now detects stale content junctions and rebuilds only the
+  lightweight game-folder links while preserving every player's profile.
+
 ## 1.9.0
 
 - Added an optional two-player, offline single-instance split-screen engine. It uses

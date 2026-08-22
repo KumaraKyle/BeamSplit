@@ -70,6 +70,17 @@ public static partial class Instances
         var game = GameDir(cfg, i);
         if (Directory.Exists(game) && !rebuild)
         {
+            var staleLink = FirstStaleContentLink(cfg, i);
+            if (staleLink is not null)
+            {
+                // Only the junctions are stale. Rebuilding the entire clone can collide
+                // with a late crash reporter/antivirus handle on BeamNG.drive.x64.exe.
+                // Repointing content links is sufficient and keeps the private Bin64
+                // plus the player's profile completely undisturbed.
+                var label = i == SingleInstanceIndex ? "Single" : $"P{i}";
+                log?.Report($"  {label}: content link '{staleLink}' points at an old or missing BeamNG install; repairing links ...");
+                RepairContentLinks(cfg, i);
+            }
             EnsureStartupIni(cfg, i);
             RepairMissingBin64Files(cfg, i, log);
             ShareExistingBin64(cfg, i, log);
@@ -128,6 +139,64 @@ public static partial class Instances
         EnsureStartupIni(cfg, i);
         log?.Report(i == SingleInstanceIndex ? "  single-instance profile ready" : $"  instance {i} ready");
     }
+
+    internal static string? FirstStaleContentLink(AppConfig cfg, int i)
+    {
+        if (string.IsNullOrWhiteSpace(cfg.GameRoot)) return "game root";
+        var game = GameDir(cfg, i);
+        foreach (var source in Directory.GetDirectories(cfg.GameRoot))
+        {
+            var name = Path.GetFileName(source);
+            if (name.Equals("Bin64", StringComparison.OrdinalIgnoreCase)) continue;
+            var link = new DirectoryInfo(Path.Combine(game, name));
+            try
+            {
+                if (!link.Exists || link.LinkTarget is null) return name;
+                var resolved = link.ResolveLinkTarget(true)?.FullName;
+                if (resolved is null || !SamePath(resolved, source)) return name;
+            }
+            catch { return name; }
+        }
+        return null;
+    }
+
+    private static void RepairContentLinks(AppConfig cfg, int i)
+    {
+        var game = GameDir(cfg, i);
+        foreach (var source in Directory.GetDirectories(cfg.GameRoot!))
+        {
+            var name = Path.GetFileName(source);
+            if (name.Equals("Bin64", StringComparison.OrdinalIgnoreCase)) continue;
+            var destination = Path.Combine(game, name);
+            var current = new DirectoryInfo(destination);
+            var valid = false;
+            try
+            {
+                valid = current.Exists && current.LinkTarget is not null &&
+                        current.ResolveLinkTarget(true) is { } resolved &&
+                        SamePath(resolved.FullName, source);
+            }
+            catch { }
+            if (valid) continue;
+
+            try { if ((current.Attributes & FileAttributes.ReparsePoint) != 0) Directory.Delete(destination); }
+            catch { RunCmd($"rmdir \"{destination}\""); }
+            var remains = Directory.Exists(destination);
+            try { remains |= new DirectoryInfo(destination).LinkTarget is not null; } catch { }
+            if (remains)
+                throw new IOException($"Could not replace stale content link '{destination}'. Close BeamNG and try again.");
+            Junction(destination, source);
+        }
+
+        var stale = FirstStaleContentLink(cfg, i);
+        if (stale is not null)
+            throw new IOException($"Content link '{stale}' still does not point at the configured BeamNG installation.");
+    }
+
+    internal static bool SamePath(string left, string right) =>
+        Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Equals(Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The whole point of the separate game folder: this instance's own profile.</summary>
     private static void EnsureStartupIni(AppConfig cfg, int i)
