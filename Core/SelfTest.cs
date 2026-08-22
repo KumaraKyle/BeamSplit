@@ -69,6 +69,30 @@ public static class SelfTest
             W("");
 
             W("-- mod manager --");
+            const string repositoryFixture = """
+                <ol class="resourceList"><li class="resourceListItem visible " id="resource-42">
+                <div class="resourceImage"><a class="resourceIcon"><img src="data/resource_icons/0/42.jpg?123" /></a></div>
+                <h3 class="title"><a href="resources/?prefix_id=4">Beta</a>
+                <a href="resources/test-car.42/">Test Car</a><span class="version">1.2</span></h3>
+                <div class="resourceDetails muted"><a href="resources/authors/tester.1/">Tester</a>,
+                <a href="resources/test-car.42/"><abbr data-datestring="Aug 21, 2026">date</abbr></a>,
+                <a href="resources/categories/land.3/">Land</a></div>
+                <div class="tagLine">A safe fixture</div><span class="ratings" title="4.50"></span>
+                <dl class="resourceDownloads"><dt>Downloads:</dt><dd>1,234</dd></dl>
+                <dl class="resourceUpdated"><dt>Updated:</dt><dd><abbr data-datestring="Aug 21, 2026">date</abbr></dd></dl>
+                </li></ol>
+                """;
+            var parsedRepo = OfficialModRepository.ParseListing(repositoryFixture);
+            var parsedDownload = OfficialModRepository.ParseDownloadUri(
+                """<a href="resources/test-car.42/download?version=123" class="inner">Download Now</a>""");
+            var repoParserPass = parsedRepo.Count == 1 && parsedRepo[0].Title == "Test Car" &&
+                                 parsedRepo[0].Author == "Tester" && parsedRepo[0].Downloads == "1,234" &&
+                                 parsedRepo[0].ImageUri?.AbsolutePath == "/data/resource_icons/0/42.jpg" &&
+                                 parsedDownload?.Host == "www.beamng.com" &&
+                                 parsedDownload.AbsolutePath.EndsWith("/download", StringComparison.Ordinal);
+            W($"  official repo : {(repoParserPass ? "PASS" : "FAIL")} (listing parser)");
+            if (!repoParserPass) throw new InvalidOperationException("official repository parser regression");
+
             var modProbe = Path.Combine(Path.GetTempPath(), $"BeamSplit-mods-{Guid.NewGuid():N}");
             try
             {

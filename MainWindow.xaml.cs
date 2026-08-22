@@ -45,16 +45,21 @@ public partial class MainWindow : Window
         Top = pm.Y + Math.Max(0, (pm.Height - Height) / 2);
 
         _pages[NavSetup] = () => new SetupPage(LaunchAsync, RetileRunningAsync,
+            () => NavPlay.IsChecked = true,
             () => NavScreens.IsChecked = true,
             () => NavServer.IsChecked = true,
             () => NavSettings.IsChecked = true,
             StartTour);
+        _pages[NavPlay] = () => new PlayPage(LaunchAsync, RetileRunningAsync,
+            () => NavSetup.IsChecked = true,
+            () => NavScreens.IsChecked = true);
         _pages[NavScreens] = () => new ScreensPage(LaunchAsync, RetileRunningAsync);
         _pages[NavServer] = () => new ServerPage();
         _pages[NavMods] = () => new ModsPage();
         _pages[NavSession] = () => new SessionPage(_session,
             LaunchAsync,
             RetileRunningAsync,
+            () => { _launcher.StopSession(_state.Progress()); _focus.Stop(); },
             () => { _launcher.StopAll(_state.Progress()); _focus.Stop(); });
         _pages[NavSettings] = () => new SettingsPage(RebuildAsync,
             () => PlayCinematicAsync(Math.Max(1, _state.Config.Players.Count)));
@@ -63,22 +68,25 @@ public partial class MainWindow : Window
             nav.Checked += (s, _) => Navigate((RadioButton)s!);
 
         _tourSteps.AddRange([
-            new TourStep(NavSetup, "01 · READY ROOM", "Launch without the tab marathon",
-                "Play now contains both the guided first-time setup and the normal quick launcher. Pick BeamMP or Solo, choose the player count, repair readiness issues, arrange screens and launch without changing pages.",
-                "Use Setup guide inside Play whenever the rig changes; Quick play remains one click away."),
-            new TourStep(NavScreens, "02 · CREW CHIEF", "Put every driver in their seat",
+            new TourStep(NavSetup, "01 · SCRUTINEERING", "Know exactly what is ready",
+                "Setup owns the first-time walkthrough and the complete dependency checklist. Green items are ready, red items block launch, and amber items are optional recommendations.",
+                "Use Fix everything it can after an update or whenever an install path changes."),
+            new TourStep(NavPlay, "02 · READY ROOM", "Build the session in one place",
+                "Play combines mode, player count, fast screen presets, controller and audio behaviour, frame cap, mods and the final launch button without burying them in separate tabs.",
+                "Use a preset for the common layouts, then open Screens only when you want custom placement."),
+            new TourStep(NavScreens, "03 · CREW CHIEF", "Put every driver in their seat",
                 "Screens maps the real Windows display layout. Split a panel, drag player/controller chips into regions, identify pads, and apply routing or placement to a session that is already running.",
                 "Display names—not discovery order—are saved, so unplugging a monitor cannot silently swap player identities."),
-            new TourStep(NavServer, "03 · PIT LANE", "Own the shared world",
+            new TourStep(NavServer, "04 · PIT LANE", "Own the shared world",
                 "Server holds the local BeamMP race rules: AuthKey, map, player and vehicle limits, port, privacy and server identity. Solo drivers can ignore this entire page.",
                 "The server still needs a free BeamMP AuthKey even when every player is on this one PC."),
-            new TourStep(NavMods, "04 · LOADOUT", "Bring the good stuff",
+            new TourStep(NavMods, "05 · LOADOUT", "Bring the good stuff",
                 "Mods mounts your normal mod library into every local profile without copying it. Separately choose which ZIPs the BeamMP server distributes as a pack.",
                 "The shared library costs no extra storage. Keep client-only extras out of Server sends; those packages are downloaded by every connected player."),
-            new TourStep(NavSession, "05 · INSTRUMENT CLUSTER", "Read the rig like a dashboard",
+            new TourStep(NavSession, "06 · INSTRUMENT CLUSTER", "Read the rig like a dashboard",
                 "Session is the live process monitor. Its only dials are actual system load and RAM; running instances and world sync use clearer status cards. Each driver card exposes state, port, pad, PID, memory, load, mod health and the latest launcher/game signal.",
                 "Connected and synced are different: a car can reach its launcher before it has actually appeared in the shared world."),
-            new TourStep(NavSettings, "06 · GARAGE", "Tune once, apply everywhere",
+            new TourStep(NavSettings, "07 · GARAGE", "Tune once, apply everywhere",
                 "Settings controls installation paths, frame caps, graphics, input, audio perspective, output devices, portable updates and maintenance. BeamSplit writes the chosen runtime values into every profile before launch.",
                 "Local vehicle audio avoids doubled cars on shared speakers. Use All only when each player has a separately routed output.")
         ]);
@@ -101,7 +109,7 @@ public partial class MainWindow : Window
 
         Loaded += async (_, _) =>
         {
-            var initial = NavSetup;
+            var initial = _state.Config.OnboardingComplete ? NavPlay : NavSetup;
             initial.IsChecked = true;
             Navigate(initial);
             await CheckForUpdatesQuietlyAsync();

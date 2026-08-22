@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Public beta · v1.7.0**
+**Public beta · v1.8.0**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.
@@ -69,17 +69,19 @@ from the controllers independently.
 
 ## Tabs
 
-**Guide** — the first-run tour. It remembers your place, repairs downloadable setup
-items, offers useful screen presets, and leaves advanced choices on their proper pages.
-You can reopen it whenever a new player needs the tour.
+**Setup** — the first-run guide plus the complete green/red system-readiness checklist,
+automatic repairs and setup log. Incomplete installs open here; once onboarding is done,
+BeamSplit opens directly on Play. You can return whenever an install path or game version
+changes.
 
-**Cockpit tour** — a reusable six-stop walkaround over the real Play, Screens, Server,
-Mods, Session and Settings pages. Start it from the lower-left **Take cockpit tour**
+**Cockpit tour** — a reusable seven-stop walkaround over the real Setup, Play, Screens,
+Server, Mods, Session and Settings pages. Start it from the lower-left **Take cockpit tour**
 button; it explains what every screen is for without changing the rig.
 
-**Play** — the single starting point: switch between the first-time Setup guide and
-Quick play without changing pages, then choose player count, repair setup or launch. The
-detailed prerequisite checklist remains directly below whenever something needs attention.
+**Play** — the session composer: choose BeamMP or Solo, one to four players, a quick
+screen preset, controller isolation, shared mods, background audio, BeamMP audio mix,
+frame cap, auto-join and launch cinematic from one page. Its compact readiness meter
+links back to Setup if anything blocks launch; custom placement remains on Screens.
 
 **Screens** — a map of your actual displays in Windows display-number order. Split any screen 1 / 2 stacked /
 2 side-by-side / 4, drag pads onto regions, hit **Identify** if you're not sure which
@@ -89,12 +91,15 @@ re-renders if you plug or unplug a display.
 
 **Server** — the BeamMP server settings (name, port, players, cars, map, AuthKey).
 
-**Mods** — points at your normal BeamNG `mods\repo` library and mounts that same folder
-inside every player profile using Windows directory junctions. There are no duplicate
-personal mod copies and every local player sees the same library immediately. Per-package
-checkboxes are only for choosing the optional BeamMP server mod pack copied into
-`Resources\Client`. BeamSplit tracks those server files, so hand-installed packages and
-the pinned BeamMP client are left alone. Restart a running server after changing its pack.
+**Mods** — includes a built-in browser for the official
+[BeamNG repository](https://www.beamng.com/resources/), with local filtering, sorting,
+pagination, download progress and one-click installation. Those downloads are ZIP-checked,
+stored under BeamSplit's managed data folder, and zero-copy linked into every profile;
+the browser never asks for BeamNG forum credentials. Your existing BeamNG `mods\repo`
+library remains separate and read-only in intent. Per-package checkboxes choose the
+optional BeamMP server pack copied into `Resources\Client`. BeamSplit tracks those server
+files, so hand-installed packages and the pinned BeamMP client are left alone. Restart a
+running server after changing its pack.
 
 **Session** — the launch dashboard opens automatically and replaces the loose launcher
 terminals. Its two car-style gauges show whole-system load and RAM; compact cards show

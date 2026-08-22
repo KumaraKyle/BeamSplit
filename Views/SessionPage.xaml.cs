@@ -16,19 +16,23 @@ public partial class SessionPage : UserControl
     private readonly SessionMonitor _monitor;
     private readonly Func<int, Task> _launch;
     private readonly Func<Task> _retile;
-    private readonly Action _stop;
+    private readonly Action _stopSession;
+    private readonly Action _stopAll;
 
-    public SessionPage(SessionMonitor monitor, Func<int, Task> launch, Func<Task> retile, Action stop)
+    public SessionPage(SessionMonitor monitor, Func<int, Task> launch, Func<Task> retile,
+        Action stopSession, Action stopAll)
     {
         InitializeComponent();
         _monitor = monitor;
         _launch = launch;
         _retile = retile;
-        _stop = stop;
+        _stopSession = stopSession;
+        _stopAll = stopAll;
 
         BtnLaunch.Click += async (_, _) => await _launch(Math.Max(2, _state.Config.Players.Count));
         BtnRetile.Click += async (_, _) => await _retile();
-        BtnStop.Click += (_, _) => _stop();
+        BtnStopSession.Click += (_, _) => _stopSession();
+        BtnStopAll.Click += (_, _) => _stopAll();
         BtnServerToggle.Click += (_, _) =>
         {
             if (ServerConfig.IsRunning()) ServerConfig.Stop();

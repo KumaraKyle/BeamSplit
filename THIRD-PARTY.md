@@ -46,5 +46,8 @@ trademarks belong to their respective owners.
 Configuration/logs/default server data live under `%LOCALAPPDATA%\BeamSplit`. Instance
 folders live at the location selected in Settings, often on the game volume. Personal
 mods may be exposed through directory junctions; server packages are copied separately.
+Official BeamNG repository downloads are user-requested community content fetched from
+BeamNG's public website and stored separately under BeamSplit's application-data folder;
+their authors retain their own rights and licenses.
 Use BeamSplit's maintenance action to remove instances safely. Do not use a deletion tool
 that follows directory junctions into the original game or mod folder.

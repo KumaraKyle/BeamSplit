@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 1.8.0
+
+- Split the crowded launch/setup workspace into dedicated Setup and Play pages. Setup
+  now owns the detailed green/red readiness checklist, repairs, first-run guide and log;
+  Play combines mode, player count, fast screen presets and common launch options.
+- Added a controller configuration shortcut beneath Players and world.
+- Fixed BeamMP server-mod checkboxes being cleared during Apply, made long mod lists
+  independently scrollable, clarified selected versus deployed server packages, and
+  separated Stop session from Stop all (including server).
+- Added an official BeamNG repository browser to Mods with sorting, page navigation,
+  thumbnails, local search, download progress, ZIP/path validation, atomic installs and
+  a separate BeamSplit-managed zero-copy library that never writes into the user's
+  existing mods.
+
 ## 1.7.0
 
 - Replaced the initial zero-download MIT release with AGPL-3.0-or-later: anyone who

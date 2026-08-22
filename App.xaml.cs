@@ -26,6 +26,26 @@ public partial class App : Application
             return;
         }
 
+        // Read-only live probe for support/release validation:
+        //   BeamSplit.exe --repotest [outfile]
+        if (e.Args.Length >= 1 && e.Args[0] == "--repotest")
+        {
+            var outFile = e.Args.Length > 1 ? e.Args[1] : Path.Combine(Path.GetTempPath(), "beamsplit-repotest.txt");
+            try
+            {
+                var mods = await OfficialModRepository.BrowseAsync("", 1);
+                await File.WriteAllLinesAsync(outFile,
+                    [$"Official BeamNG repository: {mods.Count} resources", .. mods.Take(5).Select(mod => $"{mod.Title} | {mod.Author} | {mod.DetailsUri}")]);
+                Shutdown(mods.Count > 0 ? 0 : 1);
+            }
+            catch (Exception ex)
+            {
+                await File.WriteAllTextAsync(outFile, "Repository probe failed: " + ex);
+                Shutdown(1);
+            }
+            return;
+        }
+
         // Deploy the input isolation to every built instance and report what landed,
         // without launching anything:  BeamSplit.exe --input
         if (e.Args.Length >= 1 && e.Args[0] == "--input")
