@@ -96,7 +96,8 @@ public sealed partial class SessionMonitor
     public void Refresh()
     {
         var cfg = _state.Config;
-        var beamMp = cfg.Mode == "BeamMP";
+        var single = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental;
+        var beamMp = !single && cfg.Mode == "BeamMP";
 
         // ---- server ----
         var srvProc = Process.GetProcessesByName("BeamMP-Server").FirstOrDefault();
@@ -141,7 +142,8 @@ public sealed partial class SessionMonitor
                 Monitor = MonitorLabel(slot, monitors)
             };
 
-            if (!Instances.Exists(cfg, i))
+            var processIndex = single ? Instances.SingleInstanceIndex : i;
+            if (!Instances.Exists(cfg, processIndex))
             {
                 st.State = InstanceState.Idle;
                 st.Detail = "not built";
@@ -150,7 +152,7 @@ public sealed partial class SessionMonitor
             }
 
             // the game process belonging to THIS instance, by exe path
-            var exe = Instances.GameExe(cfg, i);
+            var exe = Instances.GameExe(cfg, processIndex);
             var game = games.FirstOrDefault(g => PathOf(g) is { } path &&
                                                  path.Equals(exe, StringComparison.OrdinalIgnoreCase));
             if (game != null)
@@ -163,7 +165,7 @@ public sealed partial class SessionMonitor
             st.PortListening = beamMp && IsListening(st.Port);
             st.LauncherPid = launchers.FirstOrDefault(l => CommandLineHas(l, $"--port {st.Port}"))?.Id ?? 0;
             st.GameConnected = beamMp && LauncherSawGame(cfg, i);
-            st.LastLine = LastGameLine(cfg, i);
+            st.LastLine = LastGameLine(cfg, processIndex);
             st.LauncherLine = LastLauncherLine(cfg, i);
             (st.ModState, st.ModOk) = BeamMpClientState(cfg, i, beamMp);
 
@@ -179,7 +181,9 @@ public sealed partial class SessionMonitor
             else if (!beamMp)
             {
                 st.State = InstanceState.GameRunning;
-                st.Detail = $"pid {st.GamePid}, {st.MemoryMb} MB";
+                st.Detail = single
+                    ? $"seat {i + 1}, shared pid {st.GamePid}, {st.MemoryMb} MB total"
+                    : $"pid {st.GamePid}, {st.MemoryMb} MB";
             }
             else if (st.LauncherPid == 0)
             {
@@ -208,9 +212,12 @@ public sealed partial class SessionMonitor
                 st.Detail = st.ModState;
             }
 
-            var missing = InputSetup.Verify(cfg, i);
-            if (missing.Count > 0 && st.State != InstanceState.Idle)
-                st.Detail += $"  -  input proxy incomplete ({string.Join(", ", missing)})";
+            if (!single)
+            {
+                var missing = InputSetup.Verify(cfg, i);
+                if (missing.Count > 0 && st.State != InstanceState.Idle)
+                    st.Detail += $"  -  input proxy incomplete ({string.Join(", ", missing)})";
+            }
 
             list.Add(st);
         }
@@ -372,6 +379,9 @@ public sealed partial class SessionMonitor
         if (TailContains(gameLog, "Deactivating BeamMP mod", 350) ||
             TailContains(gameLog, "BeamMP is not compatible", 350))
             return ("BeamMP disabled itself as incompatible", false);
+        var launcherLog = Path.Combine(Instances.MpDir(cfg, i), "Launcher.log");
+        if (TailContains(launcherLog, "Could not resolve host: auth.beammp.com", 120))
+            return ("BeamMP authentication DNS failed; auth.beammp.com is unreachable", false);
         if (TailContains(gameLog, "MPCoreNetwork.onLauncherConnected", 350))
             return ("BeamMP loaded and linked", true);
         return ("compatible client installed; waiting for game", true);

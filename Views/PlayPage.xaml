@@ -47,6 +47,11 @@
           <StackPanel>
             <TextBlock Style="{StaticResource H2}" Text="Players and world"/>
             <TextBlock Style="{StaticResource Sub}" Text="The essentials for this launch."/>
+            <TextBlock Style="{StaticResource Lbl}" Text="SESSION ENGINE"/>
+            <ComboBox x:Name="CbEngine">
+              <ComboBoxItem Content="Multi-instance · stable"/>
+              <ComboBoxItem Content="Single instance · experimental · 2 players"/>
+            </ComboBox>
             <TextBlock Style="{StaticResource Lbl}" Text="SESSION MODE"/>
             <ComboBox x:Name="CbMode">
               <ComboBoxItem Content="BeamMP · shared world"/><ComboBoxItem Content="Solo · separate worlds"/>
@@ -124,7 +129,7 @@
       <Border Style="{StaticResource CardStyle}">
         <StackPanel>
           <TextBlock Style="{StaticResource H2}" Text="Launch options"/>
-          <TextBlock Style="{StaticResource Sub}" Text="Common session settings, saved immediately and applied to every instance."/>
+          <TextBlock Style="{StaticResource Sub}" Text="Common session settings, saved immediately and applied to the selected engine."/>
           <Grid Margin="0,3,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">

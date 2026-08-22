@@ -43,7 +43,18 @@ public static class SetupStatus
             Action = "Detect"
         });
 
-        var beamMp = cfg.Mode == "BeamMP";
+        var single = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental;
+        var beamMp = !single && cfg.Mode == "BeamMP";
+
+        var singleCapability = SingleInstanceSupport.CheckCapability(cfg);
+        items.Add(new SetupItem
+        {
+            Key = "singleinstance",
+            Name = "Single-instance APIs",
+            Ok = singleCapability.Supported,
+            Detail = singleCapability.Detail,
+            Essential = single
+        });
 
         var launcherOk = !string.IsNullOrWhiteSpace(cfg.LauncherExe) && File.Exists(cfg.LauncherExe);
         items.Add(new SetupItem
@@ -108,7 +119,8 @@ public static class SetupStatus
             Name = "Input proxy",
             Ok = proxyOk,
             Detail = proxyOk ? "installed" : "not extracted yet",
-            Action = "Extract"
+            Action = "Extract",
+            Essential = !single
         });
 
         var protoOk = NativeAssets.ProtoInputReady;

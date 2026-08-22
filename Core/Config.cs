@@ -8,6 +8,13 @@ namespace BeamSplit.Core;
 /// <summary>How one player's screen area is defined.</summary>
 public enum SplitMode { Full = 1, TwoStacked = 2, TwoSideBySide = 3, FourGrid = 4 }
 
+/// <summary>Which local multiplayer architecture launches the session.</summary>
+public enum SessionEngine
+{
+    MultiInstance = 0,
+    SingleInstanceExperimental = 1
+}
+
 /// <summary>
 /// One player: which monitor, which region of it, and which physical pad.
 /// Monitors are keyed by DeviceName, never by index - enumeration order is not
@@ -63,6 +70,7 @@ public sealed class AppConfig
     public int BasePort { get; set; } = 4444;
 
     public string Mode { get; set; } = "BeamMP";   // or "Solo"
+    public SessionEngine SessionEngine { get; set; } = SessionEngine.MultiInstance;
     public bool AutoJoinBeamMp { get; set; } = true;// guest login + local direct connect
     public bool Borderless { get; set; } = true;
     public bool Isolate { get; set; } = true;      // per-instance controller isolation
@@ -252,6 +260,9 @@ public static class ConfigStore
         cfg.PlayerModFiles ??= [];
         cfg.ServerModFiles ??= [];
         cfg.ManagedServerModFiles ??= [];
+        if (!Enum.IsDefined(cfg.SessionEngine)) cfg.SessionEngine = SessionEngine.MultiInstance;
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
+            cfg.Mode = "Solo";
         if (!new[] { "LocalVehicle", "All", "P0Only" }.Contains(cfg.AudioMixMode,
                 StringComparer.OrdinalIgnoreCase))
             cfg.AudioMixMode = "LocalVehicle";

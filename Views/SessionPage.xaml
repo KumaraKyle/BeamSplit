@@ -47,7 +47,7 @@
                   <Border Style="{StaticResource SoftCard}" Background="#11161E" Margin="0">
                     <Grid>
                       <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="RUNNING INSTANCES" Style="{StaticResource Lbl}"/>
+                        <TextBlock x:Name="LblRunningTitle" Text="RUNNING INSTANCES" Style="{StaticResource Lbl}"/>
                         <TextBlock x:Name="LblInstancesValue" FontFamily="Consolas" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource Good}"/>
                         <TextBlock x:Name="LblInstancesDetail" FontSize="10.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
                       </StackPanel>

@@ -23,12 +23,15 @@ public static class MemoryAdvisor
             .Skip(1).FirstOrDefault();
         if (id is null || !HeavyMaps.TryGetValue(id, out var name)) return null;
 
-        const long installedThresholdMb = 20 * 1024;
-        const long availableThresholdMb = 6 * 1024;
+        var single = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental;
+        var installedThresholdMb = single ? 12 * 1024L : 20 * 1024L;
+        var availableThresholdMb = single ? 3 * 1024L : 6 * 1024L;
         if (totalMemoryMb > installedThresholdMb && availableMemoryMb > availableThresholdMb) return null;
 
         var reason = totalMemoryMb <= installedThresholdMb
-            ? "Large-world assets are loaded separately by every BeamNG instance."
+            ? single
+                ? "The map is loaded once, but its assets and both simulated vehicles still need memory."
+                : "Large-world assets are loaded separately by every BeamNG instance."
             : "Other applications are already using most of the available memory.";
         return new MemoryAdvice(name, players, totalMemoryMb, availableMemoryMb, reason);
     }

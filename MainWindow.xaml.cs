@@ -307,8 +307,16 @@ public partial class MainWindow : Window
         var cfg = _state.Config;
         cfg.EnsureDefaultPlayers(Math.Max(1, players));
         _state.Save();
-        await Task.Run(() => Instances.EnsureBuilt(cfg, Math.Max(1, players), _state.Progress(), rebuild: true));
-        SetStatus("Instances rebuilt.");
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
+        {
+            await Task.Run(() => Instances.EnsureSingleBuilt(cfg, _state.Progress(), rebuild: true));
+            SetStatus("Single-instance profile rebuilt.");
+        }
+        else
+        {
+            await Task.Run(() => Instances.EnsureBuilt(cfg, Math.Max(1, players), _state.Progress(), rebuild: true));
+            SetStatus("Instances rebuilt.");
+        }
     }
 
     public async Task LaunchAsync(int players)
@@ -344,7 +352,9 @@ public partial class MainWindow : Window
         }
         _state.Save();
 
-        SetStatus($"Launching {players} instances...");
+        SetStatus(cfg.SessionEngine == SessionEngine.SingleInstanceExperimental
+            ? "Launching one BeamNG instance with two local seats..."
+            : $"Launching {players} instances...");
         // Put the live dashboard in front immediately. Launcher output, mod health,
         // ports and resource usage now live here instead of in loose console windows.
         NavSession.IsChecked = true;
@@ -366,10 +376,12 @@ public partial class MainWindow : Window
             }
             await launchTask;
             _logs.Rebuild(cfg);
-            if (cfg.Watchdog && !cfg.UseProtoInput) _focus.Start();
-            SetStatus(cfg.UseProtoInput
-                ? "Session running. Controllers remain isolated when focused."
-                : "Session running. Don't click into a game window.");
+            if (cfg.SessionEngine == SessionEngine.MultiInstance && cfg.Watchdog && !cfg.UseProtoInput) _focus.Start();
+            SetStatus(cfg.SessionEngine == SessionEngine.SingleInstanceExperimental
+                ? "Shared game running. Pick a Freeroam map; split-screen activates when it loads."
+                : cfg.UseProtoInput
+                    ? "Session running. Controllers remain isolated when focused."
+                    : "Session running. Don't click into a game window.");
         }
         catch (Exception ex)
         {

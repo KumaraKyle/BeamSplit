@@ -1,0 +1,47 @@
+{
+  "toggleMenues": {
+    "cat":"menu", "order":1, "ctx":"tlua", "actionMap":"First",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nav(PLAYER,'menu') else guihooks.trigger('UINavigation','menu',VALUE) end",
+    "onUp":"if not (extensions.render_splitScreen and extensions.render_splitScreen.isActive()) then guihooks.trigger('UINavigation','menu',VALUE) end",
+    "title":"ui.inputActions.controllerui.menu.title", "desc":"ui.inputActions.controllerui.menu.description"
+  },
+  "menu_item_up": {
+    "cat":"menu", "order":10, "ctx":"tlua", "actionMap":"MenuIndependent",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nav(PLAYER,'up') else guihooks.trigger('UINavigation','focus_u',VALUE) end",
+    "onUp":"if not (extensions.render_splitScreen and extensions.render_splitScreen.isActive()) then guihooks.trigger('UINavigation','focus_u',VALUE) end",
+    "title":"ui.inputActions.controllerui.focus_u.title", "desc":"ui.inputActions.controllerui.focus_u.description"
+  },
+  "menu_item_down": {
+    "cat":"menu", "order":11, "ctx":"tlua", "actionMap":"MenuIndependent",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nav(PLAYER,'down') else guihooks.trigger('UINavigation','focus_d',VALUE) end",
+    "onUp":"if not (extensions.render_splitScreen and extensions.render_splitScreen.isActive()) then guihooks.trigger('UINavigation','focus_d',VALUE) end",
+    "title":"ui.inputActions.controllerui.focus_d.title", "desc":"ui.inputActions.controllerui.focus_d.description"
+  },
+  "menu_item_select": {
+    "cat":"menu", "order":30, "ctx":"tlua", "actionMap":"MenuIndependent",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nav(PLAYER,'ok') else guihooks.trigger('UINavigation','ok',VALUE) end",
+    "onUp":"if not (extensions.render_splitScreen and extensions.render_splitScreen.isActive()) then guihooks.trigger('UINavigation','ok',VALUE) end",
+    "title":"ui.inputActions.controllerui.ok.title", "desc":"ui.inputActions.controllerui.ok.description"
+  },
+  "menu_item_back": {
+    "cat":"menu", "order":34, "ctx":"tlua", "actionMap":"MenuIndependent",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nav(PLAYER,'back') else guihooks.trigger('UINavigation','back',VALUE) end",
+    "onUp":"if not (extensions.render_splitScreen and extensions.render_splitScreen.isActive()) then guihooks.trigger('UINavigation','back',VALUE) end",
+    "title":"ui.inputActions.controllerui.back.title", "desc":"ui.inputActions.controllerui.back.description"
+  },
+  "switch_next_vehicle_multiseat": {
+    "cat":"gameplay", "order":11.1, "ctx":"tlua", "actionMap":"Multiseat",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nextCar(PLAYER,1) else extensions.core_multiseat.enterNextVehicle(PLAYER,1) extensions.hook('trackNewVeh') end",
+    "title":"ui.inputActions.gameplay.switch_next_vehicle_multiseat.title", "desc":"ui.inputActions.gameplay.switch_next_vehicle_multiseat.description"
+  },
+  "switch_next_vehicle": {
+    "cat":"gameplay", "order":11, "ctx":"tlua",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nextCar(PLAYER,1) else extensions.core_input_vehicleSwitching.switchCycleVehicle(PLAYER,1) end",
+    "title":"ui.inputActions.gameplay.switch_next_vehicle.title", "desc":"ui.inputActions.gameplay.switch_next_vehicle.description"
+  },
+  "switch_previous_vehicle": {
+    "cat":"gameplay", "order":10, "ctx":"tlua",
+    "onDown":"if extensions.render_splitScreen and extensions.render_splitScreen.isActive() then extensions.render_splitScreen.nextCar(PLAYER,-1) else extensions.core_input_vehicleSwitching.switchCycleVehicle(PLAYER,-1) end",
+    "title":"ui.inputActions.gameplay.switch_previous_vehicle.title", "desc":"ui.inputActions.gameplay.switch_previous_vehicle.description"
+  }
+}

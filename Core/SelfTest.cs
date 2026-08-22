@@ -1,5 +1,7 @@
 using System.IO;
+using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 
 namespace BeamSplit.Core;
 
@@ -60,7 +62,13 @@ public static class SelfTest
                 32 * 1024, 20 * 1024);
             var alreadyLow = MemoryAdvisor.Evaluate(new AppConfig { LowMemoryGraphics = true }, 2,
                 "/levels/utah/info.json", 16 * 1024, 5 * 1024);
-            var advicePass = italy16?.MapName == "Italy" && grid16 is null && italy32 is null && alreadyLow is null;
+            var singleItaly16 = MemoryAdvisor.Evaluate(new AppConfig
+            {
+                LowMemoryGraphics = false,
+                SessionEngine = SessionEngine.SingleInstanceExperimental
+            }, 2, "/levels/italy/info.json", 16 * 1024, 5 * 1024);
+            var advicePass = italy16?.MapName == "Italy" && grid16 is null && italy32 is null &&
+                             alreadyLow is null && singleItaly16 is null;
             W($"  launch warning: {(advicePass ? "PASS" : "FAIL")} (heavy map / RAM / preset boundaries)");
             if (!advicePass) throw new InvalidOperationException("memory advisor regression");
             W("");
@@ -117,9 +125,15 @@ public static class SelfTest
                 Directory.CreateDirectory(Path.Combine(source, "repo"));
                 Directory.CreateDirectory(Path.Combine(source, "multiplayer"));
                 Directory.CreateDirectory(Path.Combine(server, "Resources", "Client"));
-                await File.WriteAllTextAsync(Path.Combine(source, "repo", "car.zip"), "car");
+                var sourceMod = Path.Combine(source, "repo", "car – test.zip");
+                using (var zip = ZipFile.Open(sourceMod, ZipArchiveMode.Create))
+                {
+                    var info = zip.CreateEntry("mod_info/car/info.json");
+                    await using var writer = new StreamWriter(info.Open(), new UTF8Encoding(false));
+                    await writer.WriteAsync("{\"name\":\"Car\"}");
+                }
                 await File.WriteAllTextAsync(Path.Combine(source, "multiplayer", "BeamMP.zip"), "client");
-                await File.WriteAllTextAsync(Path.Combine(server, "Resources", "Client", "hand-installed.zip"), "keep");
+                using (ZipFile.Open(Path.Combine(server, "Resources", "Client", "hand-installed.zip"), ZipArchiveMode.Create)) { }
                 var probeCfg = new AppConfig
                 {
                     InstancesDir = instances,
@@ -127,27 +141,29 @@ public static class SelfTest
                     ModsSourceDir = source,
                     ModsConfigured = true,
                     UsePlayerMods = true,
-                    PlayerModFiles = [Path.Combine("repo", "car.zip")],
-                    ServerModFiles = [Path.Combine("repo", "car.zip")]
+                    PlayerModFiles = [Path.Combine("repo", "car – test.zip")],
+                    ServerModFiles = [Path.Combine("repo", "car – test.zip")]
                 };
                 ModManager.Apply(probeCfg, 2);
                 var mount0 = Path.Combine(Instances.CurrentProfile(probeCfg, 0), "mods", ModManager.PlayerFolderName);
                 var mount1 = Path.Combine(Instances.CurrentProfile(probeCfg, 1), "mods", ModManager.PlayerFolderName);
-                var local0 = Path.Combine(mount0, "car.zip");
-                var local1 = Path.Combine(mount1, "car.zip");
-                var serverCopy = Path.Combine(server, "Resources", "Client", "car.zip");
+                var local0 = Path.Combine(mount0, "car – test.zip");
+                var local1 = Path.Combine(mount1, "car – test.zip");
+                var serverCopy = Path.Combine(server, "Resources", "Client", "car_test.zip");
                 var ignoredMp = ModManager.Discover(source).All(m => !m.Name.Equals("BeamMP.zip", StringComparison.OrdinalIgnoreCase));
                 var installPass = File.Exists(local0) && File.Exists(local1) &&
                                   new DirectoryInfo(mount0).LinkTarget != null && new DirectoryInfo(mount1).LinkTarget != null &&
                                   File.Exists(serverCopy) && ignoredMp &&
-                                  File.Exists(Path.Combine(server, "Resources", "Client", "hand-installed.zip"));
+                                  File.Exists(Path.Combine(server, "Resources", "Client", "hand-installed.zip")) &&
+                                  ModManager.InspectServerDirectory(probeCfg).Count == 0 &&
+                                  ModManager.SafeServerFileName("Polish – Dash.zip") == "Polish_Dash.zip";
                 probeCfg.UsePlayerMods = false;
                 probeCfg.PlayerModFiles.Clear();
                 probeCfg.ServerModFiles.Clear();
                 ModManager.Apply(probeCfg, 2);
                 var removePass = !File.Exists(local0) && !File.Exists(local1) && !File.Exists(serverCopy) &&
                                  File.Exists(Path.Combine(server, "Resources", "Client", "hand-installed.zip")) &&
-                                 File.Exists(Path.Combine(source, "repo", "car.zip"));
+                                 File.Exists(sourceMod);
                 W($"  zero-copy sync: {(installPass && removePass ? "PASS" : "FAIL")} (junction/remove, source preserved)");
                 if (!installPass || !removePass) throw new InvalidOperationException("managed mod sync regression");
             }
@@ -251,6 +267,71 @@ public static class SelfTest
                                   !Tiling.StyleValueMatches(normalStyle, true);
             W($"  retile normalizes window style: {(windowStylePass ? "PASS" : "FAIL")}");
             if (!windowStylePass) throw new InvalidOperationException("retile window-style regression");
+
+            var fakeMonitors = new List<MonitorInfo>
+            {
+                new(@"\\.\DISPLAY1", 0, 0, 1920, 1080, true),
+                new(@"\\.\DISPLAY2", 1920, 0, 2560, 1440, false)
+            };
+            var singleProbe = new AppConfig
+            {
+                SessionEngine = SessionEngine.SingleInstanceExperimental,
+                Players =
+                [
+                    new PlayerSlot { Index=0, MonitorDevice=fakeMonitors[0].DeviceName, Split=SplitMode.Full, Region=0, Keyboard=true },
+                    new PlayerSlot { Index=1, MonitorDevice=fakeMonitors[1].DeviceName, Split=SplitMode.Full, Region=0, Pad=1 }
+                ]
+            };
+            var singleLayout = SingleInstanceSupport.ResolveLayout(singleProbe, fakeMonitors);
+            using var manifest = JsonDocument.Parse(SingleInstanceSupport.BuildManifest(singleProbe, fakeMonitors));
+            var manifestPlayers = manifest.RootElement.GetProperty("players");
+            var singleLayoutPass = singleLayout.Window == new Rect(0, 0, 4480, 1440) &&
+                                   singleLayout.Viewports[1] == new Rect(1920, 0, 2560, 1440) &&
+                                   manifestPlayers.GetArrayLength() == 2 &&
+                                   manifestPlayers[0].GetProperty("device").GetString() == "keyboard0" &&
+                                   manifestPlayers[1].GetProperty("device").GetString() == "xinput1";
+            W($"  single span + manifest: {(singleLayoutPass ? "PASS" : "FAIL")}");
+            if (!singleLayoutPass) throw new InvalidOperationException("single-instance layout/manifest regression");
+
+            var modZip = Path.Combine(Path.GetTempPath(), $"BeamSplit-single-{Guid.NewGuid():N}.zip");
+            try
+            {
+                SingleInstanceSupport.BuildModZip(modZip);
+                using var archive = ZipFile.OpenRead(modZip);
+                var entries = archive.Entries.Select(e => e.FullName).ToHashSet(StringComparer.Ordinal);
+                var bootstrapEntry = archive.GetEntry("scripts/BeamSplit/modScript.lua");
+                var backendEntry = archive.GetEntry("lua/ge/extensions/render/splitScreen.lua");
+                var actionsEntry = archive.GetEntry("lua/ge/extensions/core/input/actions/zz_beamsplitSplitScreen.json");
+                string bootstrap;
+                using (var reader = new StreamReader(bootstrapEntry!.Open()))
+                    bootstrap = reader.ReadToEnd();
+                string backend;
+                using (var reader = new StreamReader(backendEntry!.Open()))
+                    backend = reader.ReadToEnd();
+                string actions;
+                using (var reader = new StreamReader(actionsEntry!.Open()))
+                    actions = reader.ReadToEnd();
+                var modPass = SingleInstanceSupport.ResourcesAvailable() &&
+                              entries.Contains("scripts/BeamSplit/modScript.lua") &&
+                              entries.Contains("lua/ge/extensions/render/splitScreen.lua") &&
+                              entries.Contains("lua/ge/extensions/core/input/actions/zz_beamsplitSplitScreen.json") &&
+                              bootstrap.Contains("loadBackend()", StringComparison.Ordinal) &&
+                              backend.Contains("namedTexTargetColor", StringComparison.Ordinal) &&
+                              backend.Contains("im.Image", StringComparison.Ordinal) &&
+                              backend.Contains("spawnNewVehicle", StringComparison.Ordinal) &&
+                              backend.Contains("pickerConfirm", StringComparison.Ordinal) &&
+                              backend.Contains("patchRuntimeActions", StringComparison.Ordinal) &&
+                              actions.Contains("switch_next_vehicle_multiseat", StringComparison.Ordinal);
+                W($"  embedded single-instance mod: {(modPass ? "PASS" : "FAIL")}");
+                if (!modPass) throw new InvalidOperationException("single-instance mod packaging regression");
+            }
+            finally { try { File.Delete(modZip); } catch { } }
+
+            var capabilityCfg = cfg;
+            if (!Detect.IsGameRoot(capabilityCfg.GameRoot) && installs.Count == 1)
+                capabilityCfg = new AppConfig { GameRoot = installs[0] };
+            var capability = SingleInstanceSupport.CheckCapability(capabilityCfg);
+            W($"  installed API gate: {(capability.Supported ? "PASS" : "UNAVAILABLE")} ({capability.Detail})");
             W("");
 
             W("-- xinput pads --");

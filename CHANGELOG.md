@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased
+## 1.9.0
+
+- Added an optional two-player, offline single-instance split-screen engine. It uses
+  BeamNG's native multiseat device assignment, independent camera contexts, render
+  viewports and dormant split-screen HUD inside one shared game process.
+- Added a dedicated `Single` profile, generated per-launch viewport/device manifest,
+  embedded Lua mod, capability gate, monitor-spanning borderless layout and seat-aware
+  session dashboard. The stable multi-instance/BeamMP engine remains the default.
+- Updated heavy-map memory advice so single-instance sessions are estimated as one map
+  load plus two simulated vehicles instead of two complete game processes.
+- Hardened BeamMP server-mod deployment against malformed ZIPs, non-UTF-8 mod metadata,
+  and Windows filenames that corrupt BeamMP's generated `mods.json`. Managed server-mod
+  filenames are now ASCII-normalized without touching their source files, and offending
+  hand-installed packages are identified before launch.
+- BeamMP launcher DNS failures now surface as an actionable authentication error instead
+  of starting game instances that remain indefinitely at 0/2.
 
 ## 1.8.1
 

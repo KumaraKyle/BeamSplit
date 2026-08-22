@@ -50,6 +50,7 @@ public partial class PlayPage : UserControl
         };
         MapScroller.ScrollChanged += (_, _) => UpdateMapScrollButtons();
         CbMode.SelectionChanged += (_, _) => SaveSessionChoices();
+        CbEngine.SelectionChanged += (_, _) => SaveSessionChoices();
         CbPlayers.SelectionChanged += (_, _) => SaveSessionChoices();
         CbAudioMix.SelectionChanged += (_, _) => SaveOptions();
         foreach (var check in new[] { ChkBorderless, ChkIsolate, ChkProtoInput, ChkPlayerMods,
@@ -70,6 +71,7 @@ public partial class PlayPage : UserControl
     {
         _loading = true;
         var cfg = _state.Config;
+        CbEngine.SelectedIndex = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental ? 1 : 0;
         CbMode.SelectedIndex = cfg.Mode == "Solo" ? 1 : 0;
         CbPlayers.SelectedIndex = Math.Clamp(Math.Max(1, cfg.Players.Count) - 1, 0, 3);
         CbPreset.SelectedIndex = 0;
@@ -92,8 +94,22 @@ public partial class PlayPage : UserControl
     {
         if (_loading || CbPlayers.SelectedIndex < 0) return;
         var cfg = _state.Config;
-        cfg.Mode = CbMode.SelectedIndex == 1 ? "Solo" : "BeamMP";
-        cfg.EnsureDefaultPlayers(CbPlayers.SelectedIndex + 1);
+        cfg.SessionEngine = CbEngine.SelectedIndex == 1
+            ? SessionEngine.SingleInstanceExperimental : SessionEngine.MultiInstance;
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
+        {
+            cfg.Mode = "Solo";
+            cfg.EnsureDefaultPlayers(2);
+            _loading = true;
+            CbMode.SelectedIndex = 1;
+            CbPlayers.SelectedIndex = 1;
+            _loading = false;
+        }
+        else
+        {
+            cfg.Mode = CbMode.SelectedIndex == 1 ? "Solo" : "BeamMP";
+            cfg.EnsureDefaultPlayers(CbPlayers.SelectedIndex + 1);
+        }
         _state.Save();
         RefreshSummary();
         RefreshMapState();
@@ -208,10 +224,18 @@ public partial class PlayPage : UserControl
         LblModePill.Text = cfg.Mode;
         var pads = Enumerable.Range(0, 4).Count(i => Native.PadConnected((uint)i));
         LblRigPill.Text = $"{Native.GetMonitors().Count} displays · {pads} pads";
-        LblLaunchSummary.Text = $"{Math.Max(1, cfg.Players.Count)} player(s)\n{cfg.Mode}\n{cfg.FrameLimit} FPS cap";
+        var engine = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental ? "1 instance · experimental" : cfg.Mode;
+        LblModePill.Text = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental ? "SINGLE INSTANCE · EXPERIMENTAL" : cfg.Mode;
+        LblLaunchSummary.Text = $"{Math.Max(1, cfg.Players.Count)} player(s)\n{engine}\n{cfg.FrameLimit} FPS cap";
         LblControllers.Text = ControllerSummary(cfg);
         LblLayout.Text = LayoutSummary(cfg);
         ChkAutoJoin.IsEnabled = cfg.Mode == "BeamMP";
+        var multi = cfg.SessionEngine == SessionEngine.MultiInstance;
+        CbMode.IsEnabled = multi;
+        CbPlayers.IsEnabled = multi;
+        ChkIsolate.IsEnabled = multi;
+        ChkProtoInput.IsEnabled = multi;
+        CbAudioMix.IsEnabled = multi;
     }
 
     private static string ControllerSummary(AppConfig cfg)

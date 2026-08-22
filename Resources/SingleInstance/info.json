@@ -1,0 +1,6 @@
+{
+  "name": "BeamSplit Single-Instance Split-Screen",
+  "author": "BeamSplit",
+  "version": "1.0",
+  "description": "Runtime support for BeamSplit's experimental single-instance mode."
+}

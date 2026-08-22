@@ -7,6 +7,8 @@ own screen (or their own slice of one), each with their own controller.
 
 - **Solo** — every player gets an independent world. Any BeamNG version.
 - **BeamMP** — everyone shares one world through a BeamMP server on your own machine.
+- **Single instance (experimental)** — two offline players share one BeamNG process,
+  map and simulation with native multiseat controls and independent camera views.
 
 Portable `BeamSplit.exe`, nothing to install, no .NET or PowerShell needed. It doesn't
 modify your BeamNG install; everything it creates lives in its own folders.
@@ -46,6 +48,20 @@ versions offered to users over a network must offer those users their source as 
 First launch builds one game folder per player and BeamNG compiles shaders per profile,
 so it's slow once. After that it's quick.
 
+### Experimental single-instance mode
+
+Choose **Single instance · experimental** on Play, configure exactly two inputs and
+screen regions, then launch. BeamSplit opens one normal BeamNG window; choose a Freeroam
+map inside BeamNG and the second vehicle, split views and per-player HUD activate when
+the map finishes loading. Two-monitor layouts use one borderless window spanning the
+chosen displays.
+
+This mode is offline-only and deliberately version-gated. It uses camera-context and
+render-view APIs shipped in newer BeamNG builds but not documented as a stable public
+split-screen interface. If BeamSplit cannot find the required APIs, it leaves the game
+untouched and asks you to use the stable multi-instance engine. The experimental engine
+never uses Proto Input, XInput proxy DLLs, BeamMP launchers or the local BeamMP server.
+
 ### Requirements
 
 - Windows 10/11 64-bit, BeamNG.drive, one XInput pad per player
@@ -78,7 +94,8 @@ changes.
 Server, Mods, Session and Settings pages. Start it from the lower-left **Take cockpit tour**
 button; it explains what every screen is for without changing the rig.
 
-**Play** — the session composer: choose BeamMP or Solo, one to four players, a quick
+**Play** — the session composer: choose the stable multi-instance or experimental
+single-instance engine, BeamMP or Solo, one to four players, a quick
 screen preset, controller isolation, shared mods, background audio, BeamMP audio mix,
 frame cap, auto-join and launch cinematic from one page. Its compact readiness meter
 links back to Setup if anything blocks launch; custom placement remains on Screens.

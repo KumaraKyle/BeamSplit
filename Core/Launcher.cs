@@ -27,6 +27,11 @@ public sealed class Launcher(AppState state)
     public async Task LaunchAsync(IProgress<string>? log = null, bool rebuild = false, CancellationToken ct = default)
     {
         var cfg = _state.Config;
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
+        {
+            await LaunchSingleInstanceAsync(log, rebuild, ct);
+            return;
+        }
         var players = Math.Max(1, cfg.Players.Count);
         var beamMp = cfg.Mode == "BeamMP";
 
@@ -47,6 +52,17 @@ public sealed class Launcher(AppState state)
         // it indexes the current set, while leaving the user's source folder untouched.
         ModManager.Apply(cfg, players, log);
         _state.Save();
+
+        if (beamMp)
+        {
+            var badServerMods = ModManager.InspectServerDirectory(cfg);
+            if (badServerMods.Count > 0)
+                throw new InvalidOperationException(
+                    "BeamMP cannot index one or more server mods:\n" +
+                    string.Join("\n", badServerMods.Take(5)) +
+                    (badServerMods.Count > 5 ? $"\n...and {badServerMods.Count - 5} more" : "") +
+                    "\n\nRemove or re-save those packages as UTF-8, then launch again.");
+        }
 
         // 2. per-instance input isolation
         if (cfg.Isolate) InputSetup.Deploy(cfg, log);
@@ -138,6 +154,8 @@ public sealed class Launcher(AppState state)
         CancellationToken ct = default)
     {
         var cfg = _state.Config;
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
+            throw new InvalidOperationException("Single-instance mode has one shared process. Relaunch the whole session instead.");
         if (!cfg.Players.Any(player => player.Index == instance))
             throw new ArgumentOutOfRangeException(nameof(instance), $"P{instance} is not configured.");
         if (!Instances.Exists(cfg, instance))
@@ -191,6 +209,11 @@ public sealed class Launcher(AppState state)
 
         var p = StartBeamMpLauncher(i, log, resetLog: true);
         var ready = await WaitForLauncherReadyAsync(cfg, i, p, log, ct);
+        var launcherLog = Path.Combine(Instances.MpDir(cfg, i), "Launcher.log");
+        if (TailContains(launcherLog, "Could not resolve host: auth.beammp.com", 120))
+            throw new InvalidOperationException(
+                "BeamMP authentication DNS failed (auth.beammp.com could not be resolved). " +
+                "Check the internet connection, DNS/VPN and firewall, then relaunch. Solo mode does not require BeamMP authentication.");
         if (!ready)
             log?.Report($"  P{i}: launcher did not report ready in time; starting game anyway");
 
@@ -466,6 +489,13 @@ public sealed class Launcher(AppState state)
         CancellationToken ct = default)
     {
         var cfg = _state.Config;
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
+        {
+            var process = Tiling.WindowForInstance(cfg, Instances.SingleInstanceIndex);
+            if (process is null) { log?.Report("No running single-instance BeamNG window to retile."); return 0; }
+            try { await TileSingleWindowAsync(process, log, ct, TimeSpan.FromSeconds(10)); return 1; }
+            finally { process.Dispose(); }
+        }
         var deadline = DateTime.UtcNow.AddSeconds(10);
         var touched = new HashSet<int>();
         var stable = new Dictionary<int, int>();
@@ -575,6 +605,76 @@ public sealed class Launcher(AppState state)
             if (_gameProcesses.Remove(instance, out var stale)) stale.Dispose();
         }
         return Tiling.WindowForInstance(cfg, instance, windows);
+    }
+
+    private async Task LaunchSingleInstanceAsync(IProgress<string>? log, bool rebuild, CancellationToken ct)
+    {
+        var cfg = _state.Config;
+        if (cfg.Players.Count != 2)
+            throw new InvalidOperationException("Single-instance mode currently supports exactly two players.");
+        if (cfg.Players.Any(p => !p.Keyboard && p.Pad < 0))
+            throw new InvalidOperationException("Assign a keyboard or controller to both players before launching.");
+
+        cfg.Mode = "Solo";
+        log?.Report("Launching two seats in one experimental BeamNG instance ...");
+        StopPreviousInstanceProcesses(cfg, log);
+        Instances.EnsureSingleBuilt(cfg, log, rebuild);
+        SingleInstanceSupport.Deploy(cfg, log);
+        GameSettings.ApplyFocusFixes(cfg, Instances.SingleInstanceIndex, log);
+        GameSettings.ApplyAudio(cfg, Instances.SingleInstanceIndex, log);
+        GameSettings.ApplyGraphics(cfg, Instances.SingleInstanceIndex, log);
+
+        var exe = Instances.GameExe(cfg, Instances.SingleInstanceIndex);
+        var start = new ProcessStartInfo(exe)
+        {
+            WorkingDirectory = Instances.Bin64(cfg, Instances.SingleInstanceIndex),
+            UseShellExecute = false
+        };
+        start.ArgumentList.Add("-nosteam");
+        var process = Process.Start(start) ?? throw new InvalidOperationException("BeamNG.drive did not start.");
+        DisposeTrackedProcesses();
+        _gameProcesses[Instances.SingleInstanceIndex] = process;
+        log?.Report($"  shared game pid {process.Id}; choose a Freeroam map in BeamNG to activate split-screen");
+        _ = HideBeamNgConsoleAsync(process, ct);
+        await ReportEarlyExitAsync(Instances.SingleInstanceIndex, process, log, ct);
+        if (process.HasExited) throw new InvalidOperationException($"BeamNG.drive exited early ({process.ExitCode}).");
+        await TileSingleWindowAsync(process, log, ct, TimeSpan.FromMinutes(5));
+    }
+
+    private async Task TileSingleWindowAsync(Process process, IProgress<string>? log,
+        CancellationToken ct, TimeSpan timeout)
+    {
+        var layout = SingleInstanceSupport.ResolveLayout(_state.Config, Native.GetMonitors());
+        var deadline = DateTime.UtcNow + timeout;
+        var firstWindowAt = DateTime.MinValue;
+        var stable = 0;
+        var reported = false;
+        while (DateTime.UtcNow < deadline)
+        {
+            ct.ThrowIfCancellationRequested();
+            process.Refresh();
+            if (process.HasExited) throw new InvalidOperationException("The shared BeamNG process exited before creating its window.");
+            var hwnd = process.MainWindowHandle;
+            if (hwnd != IntPtr.Zero)
+            {
+                if (firstWindowAt == DateTime.MinValue) firstWindowAt = DateTime.UtcNow;
+                if (!Tiling.Matches(hwnd, layout.Window, borderless: true))
+                {
+                    Tiling.Place(hwnd, layout.Window, borderless: true);
+                    stable = 0;
+                }
+                else stable++;
+                if (!reported)
+                {
+                    reported = true;
+                    log?.Report($"  shared window spans {layout.Window.X},{layout.Window.Y} {layout.Window.W}x{layout.Window.H}; stabilizing ...");
+                }
+                if (stable >= 8 && DateTime.UtcNow - firstWindowAt >= TimeSpan.FromSeconds(15)) break;
+            }
+            await Task.Delay(250, ct);
+        }
+        if (!reported) throw new InvalidOperationException("BeamNG started but did not create a game window.");
+        log?.Report("Single-instance window verified. Split-screen will activate after Freeroam loads.");
     }
 
     public void StopSession(IProgress<string>? log = null)

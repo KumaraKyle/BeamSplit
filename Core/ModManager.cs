@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
 
 namespace BeamSplit.Core;
 
@@ -170,7 +173,8 @@ public static class ModManager
 
         foreach (var old in previouslyManaged)
         {
-            if (wanted.Any(relative => Path.GetFileName(relative).Equals(old, StringComparison.OrdinalIgnoreCase))) continue;
+            if (wanted.Any(relative => SafeServerFileName(Path.GetFileName(relative))
+                    .Equals(old, StringComparison.OrdinalIgnoreCase))) continue;
             TryDelete(Path.Combine(client, old), log);
         }
 
@@ -179,12 +183,23 @@ public static class ModManager
         foreach (var relative in wanted.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
         {
             if (!discovered.TryGetValue(relative, out var mod)) continue;
-            var name = Path.GetFileName(relative);
+            var sourceName = Path.GetFileName(relative);
+            var name = SafeServerFileName(sourceName);
             if (!usedNames.Add(name))
             {
-                log?.Report($"Server mods: skipped {relative}; another selected ZIP is also named {name}.");
+                log?.Report($"Server mods: skipped {relative}; another selected ZIP resolves to {name}.");
                 continue;
             }
+
+            var issue = InspectServerPackage(mod.FullPath);
+            if (issue is not null)
+            {
+                log?.Report($"Server mods: skipped {sourceName} - {issue}");
+                continue;
+            }
+
+            if (!name.Equals(sourceName, StringComparison.Ordinal))
+                log?.Report($"Server mods: normalized {sourceName} to {name} for BeamMP UTF-8 compatibility.");
 
             var destination = Path.Combine(client, name);
             if (File.Exists(destination) && !previouslyManaged.Contains(name))
@@ -229,6 +244,88 @@ public static class ModManager
     private static bool IsSimpleFileName(string value) =>
         !string.IsNullOrWhiteSpace(value) && Path.GetFileName(value) == value &&
         value.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// BeamMP Server 3.x serializes resource names through a narrow string on Windows.
+    /// A typographic dash or other ANSI-only character can consequently become byte
+    /// 0x97 in mods.json and make the entire mod database unreadable. Managed copies
+    /// therefore get a deterministic ASCII filename; the source package is untouched.
+    /// </summary>
+    internal static string SafeServerFileName(string name)
+    {
+        var stem = Path.GetFileNameWithoutExtension(name);
+        var output = new StringBuilder(stem.Length);
+        var underscore = false;
+        foreach (var c in stem)
+        {
+            var safe = c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '-' or '_' or '.';
+            if (safe)
+            {
+                output.Append(c);
+                underscore = false;
+            }
+            else if (!underscore)
+            {
+                output.Append('_');
+                underscore = true;
+            }
+        }
+        var clean = output.ToString().Trim('.', '_', '-');
+        if (clean.Length == 0) clean = "beamsplit-mod";
+        return clean + ".zip";
+    }
+
+    /// <summary>Returns a user-facing reason when BeamMP cannot safely index a ZIP.</summary>
+    internal static string? InspectServerPackage(string path)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(path);
+            var strictUtf8 = new UTF8Encoding(false, true);
+            foreach (var entry in archive.Entries.Where(e =>
+                         e.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (entry.Length > 16 * 1024 * 1024)
+                    return $"{entry.FullName} is an unexpectedly large JSON file";
+                using var stream = entry.Open();
+                using var memory = new MemoryStream();
+                stream.CopyTo(memory);
+                string json;
+                try { json = strictUtf8.GetString(memory.ToArray()); }
+                catch (DecoderFallbackException)
+                {
+                    return $"{entry.FullName} is not UTF-8 encoded";
+                }
+
+                if (entry.FullName.Contains("mod_info/", StringComparison.OrdinalIgnoreCase))
+                {
+                    try { using var _ = JsonDocument.Parse(json); }
+                    catch (JsonException) { return $"{entry.FullName} contains invalid JSON"; }
+                }
+            }
+            return null;
+        }
+        catch (InvalidDataException) { return "the file is not a readable ZIP archive"; }
+        catch (IOException ex) { return $"the ZIP could not be read ({ex.Message})"; }
+        catch (UnauthorizedAccessException) { return "access to the ZIP was denied"; }
+    }
+
+    internal static IReadOnlyList<string> InspectServerDirectory(AppConfig cfg)
+    {
+        if (string.IsNullOrWhiteSpace(cfg.ServerDir)) return [];
+        var client = Path.Combine(cfg.ServerDir, "Resources", "Client");
+        if (!Directory.Exists(client)) return [];
+        var issues = new List<string>();
+        foreach (var path in Directory.GetFiles(client, "*.zip", SearchOption.TopDirectoryOnly))
+        {
+            var name = Path.GetFileName(path);
+            if (!name.All(c => c <= 0x7f))
+                issues.Add($"{name}: filename contains non-ASCII characters");
+            var issue = InspectServerPackage(path);
+            if (issue is not null) issues.Add($"{name}: {issue}");
+        }
+        return issues;
+    }
 
     private static void CopyAtomic(string source, string destination)
     {

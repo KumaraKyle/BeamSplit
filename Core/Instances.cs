@@ -19,6 +19,7 @@ namespace BeamSplit.Core;
 /// </summary>
 public static partial class Instances
 {
+    public const int SingleInstanceIndex = -1;
     private static readonly HashSet<string> PrivateBinFiles = new(StringComparer.OrdinalIgnoreCase)
     {
         // Per-instance input and Steam integration files may be replaced in-place.
@@ -31,7 +32,8 @@ public static partial class Instances
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool CreateHardLink(string newFile, string existingFile, IntPtr attrs);
 
-    public static string InstanceDir(AppConfig cfg, int i) => Path.Combine(cfg.InstancesDir, $"P{i}");
+    public static string InstanceDir(AppConfig cfg, int i) => Path.Combine(cfg.InstancesDir,
+        i == SingleInstanceIndex ? "Single" : $"P{i}");
     public static string GameDir(AppConfig cfg, int i) => Path.Combine(InstanceDir(cfg, i), "game");
     public static string Bin64(AppConfig cfg, int i) => Path.Combine(GameDir(cfg, i), "Bin64");
     public static string GameExe(AppConfig cfg, int i) => Path.Combine(Bin64(cfg, i), "BeamNG.drive.x64.exe");
@@ -55,6 +57,14 @@ public static partial class Instances
         for (var i = 0; i < players; i++) Build(cfg, i, log, rebuild);
     }
 
+    public static void EnsureSingleBuilt(AppConfig cfg, IProgress<string>? log = null, bool rebuild = false)
+    {
+        if (!Detect.IsGameRoot(cfg.GameRoot))
+            throw new InvalidOperationException($"BeamNG not found at '{cfg.GameRoot}'");
+        Directory.CreateDirectory(cfg.InstancesDir);
+        Build(cfg, SingleInstanceIndex, log, rebuild);
+    }
+
     private static void Build(AppConfig cfg, int i, IProgress<string>? log, bool rebuild)
     {
         var game = GameDir(cfg, i);
@@ -68,7 +78,7 @@ public static partial class Instances
 
         if (Directory.Exists(game)) RemoveInstanceGameDir(game, log);
         Directory.CreateDirectory(game);
-        log?.Report($"Building instance {i} ...");
+        log?.Report(i == SingleInstanceIndex ? "Building single-instance profile ..." : $"Building instance {i} ...");
 
         var root = cfg.GameRoot!;
 
@@ -116,7 +126,7 @@ public static partial class Instances
 
         Directory.CreateDirectory(UserPath(cfg, i));
         EnsureStartupIni(cfg, i);
-        log?.Report($"  instance {i} ready");
+        log?.Report(i == SingleInstanceIndex ? "  single-instance profile ready" : $"  instance {i} ready");
     }
 
     /// <summary>The whole point of the separate game folder: this instance's own profile.</summary>

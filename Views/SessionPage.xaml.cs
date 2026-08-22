@@ -62,8 +62,9 @@ public partial class SessionPage : UserControl
     private void Render()
     {
         var machine = SystemStats.Capture();
-        var totalGameMemory = _monitor.Items.Sum(i => i.MemoryMb);
-        var totalGameCpu = _monitor.Items.Sum(i => i.CpuPercent);
+        var processRows = _monitor.Items.Where(i => i.GamePid != 0).GroupBy(i => i.GamePid).Select(g => g.First()).ToList();
+        var totalGameMemory = processRows.Sum(i => i.MemoryMb);
+        var totalGameCpu = processRows.Sum(i => i.CpuPercent);
         var running = _monitor.Items.Count(i => i.GamePid != 0);
         var ready = _monitor.Items.Count(i => i.State is InstanceState.Synced or InstanceState.GameRunning);
         var count = Math.Max(1, _monitor.Items.Count);
@@ -73,7 +74,11 @@ public partial class SessionPage : UserControl
         GaugeRam.Value = memoryPercent;
         GaugeRam.ValueText = machine.TotalMemoryMb > 0 ? $"{machine.UsedMemoryMb / 1024d:0.0}G" : $"{totalGameMemory / 1024d:0.0}G";
         LblInstancesValue.Text = $"{running} / {count}";
-        LblInstancesDetail.Text = running == count ? "All configured game windows are running." : $"{count - running} instance(s) waiting.";
+        var single = _state.Config.SessionEngine == SessionEngine.SingleInstanceExperimental;
+        LblRunningTitle.Text = single ? "ACTIVE LOCAL SEATS" : "RUNNING INSTANCES";
+        LblInstancesDetail.Text = running == count
+            ? single ? "Both seats share one BeamNG process." : "All configured game windows are running."
+            : single ? $"{count - running} seat(s) waiting." : $"{count - running} instance(s) waiting.";
         LblSyncValue.Text = $"{ready} / {count}";
         LblSyncDetail.Text = ready == count ? "Every running driver is ready." : "Waiting for game or BeamMP synchronization.";
         LblDashClock.Text = DateTime.Now.ToString("HH:mm:ss");
@@ -82,11 +87,11 @@ public partial class SessionPage : UserControl
         LblDisplayStrip.Text = $"Games {totalGameCpu:0}% CPU  ·  {totalGameMemory:N0} MB RAM  ·  {displayCount} display{(displayCount == 1 ? "" : "s")}";
 
         var s = _monitor.Server;
-        var beamMp = _state.Config.Mode == "BeamMP";
+        var beamMp = !single && _state.Config.Mode == "BeamMP";
 
         DotServer.Fill = (Brush)FindResource(!beamMp ? "Faint" : s.Running && s.Listening ? "Good" : s.Running ? "Warn" : "Faint");
         SetLamp(LampServer, !beamMp || s.Running && s.Listening, beamMp && s.Running && !s.Listening);
-        SetLamp(LampInput, _state.Config.UseProtoInput && NativeAssets.ProtoInputReady, false);
+        SetLamp(LampInput, single || _state.Config.UseProtoInput && NativeAssets.ProtoInputReady, false);
         SetLamp(LampWindows, running == count, running > 0 && running < count);
         LblServerTitle.Text = beamMp ? "BeamMP server" : "BeamMP server (not used in Solo)";
         BtnServerToggle.Content = s.Running ? "Stop" : "Start";
@@ -245,7 +250,8 @@ public partial class SessionPage : UserControl
         grid.Children.Add(text);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
-        if ((st.State is InstanceState.Idle or InstanceState.WaitingForLauncher or InstanceState.Error) &&
+        if (_state.Config.SessionEngine == SessionEngine.MultiInstance &&
+            (st.State is InstanceState.Idle or InstanceState.WaitingForLauncher or InstanceState.Error) &&
             !_relaunching.Contains(st.Index) && _canRelaunch())
         {
             var relaunch = new Button
@@ -272,7 +278,9 @@ public partial class SessionPage : UserControl
         var openLog = new Button { Content = "Log", Style = (Style)FindResource("Small"), Margin = new Thickness(0, 0, 6, 0) };
         openLog.Click += (_, _) =>
         {
-            var log = System.IO.Path.Combine(Instances.CurrentProfile(_state.Config, st.Index), "beamng.log");
+            var index = _state.Config.SessionEngine == SessionEngine.SingleInstanceExperimental
+                ? Instances.SingleInstanceIndex : st.Index;
+            var log = System.IO.Path.Combine(Instances.CurrentProfile(_state.Config, index), "beamng.log");
             if (File.Exists(log)) Process.Start("explorer.exe", $"/select,\"{log}\"");
         };
         actions.Children.Add(openLog);
@@ -280,7 +288,9 @@ public partial class SessionPage : UserControl
         var folder = new Button { Content = "Folder", Style = (Style)FindResource("Small") };
         folder.Click += (_, _) =>
         {
-            var dir = Instances.InstanceDir(_state.Config, st.Index);
+            var index = _state.Config.SessionEngine == SessionEngine.SingleInstanceExperimental
+                ? Instances.SingleInstanceIndex : st.Index;
+            var dir = Instances.InstanceDir(_state.Config, index);
             if (Directory.Exists(dir)) Process.Start("explorer.exe", dir);
         };
         actions.Children.Add(folder);
