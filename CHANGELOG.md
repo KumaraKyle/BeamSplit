@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Disabled BeamNG's special inactive-window FPS limiter in every multi-instance
+  profile, preventing the unfocused player from dropping to a few FPS on affected
+  PCs. Focus-setting writes are now read back and verified, with a visible warning
+  instead of silently claiming success when a profile is locked or read-only.
+
 ## 1.9.1
 
 - Fixed an immediate multi-instance startup crash after the configured BeamNG install

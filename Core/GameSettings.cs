@@ -15,7 +15,7 @@ namespace BeamSplit.Core;
 ///   AudioMuteOnWindowLoseFocus  cloud  true   -> only one instance would have sound
 ///   unfocusedInput              cloud  false  -> unfocused instances ignore input
 ///   fpsLimitBackgroundEnabled   local  true   -> background instances get throttled
-///   fpsLimitBackground          local  30     -> ...to 30fps
+///   fpsLimitBackground          local  30     -> ...to 30fps when enabled
 ///
 /// The cloud/local tag in defaults.json says which file each one lives in.
 /// BeamNG rewrites these on exit, so they are applied before every launch.
@@ -35,19 +35,25 @@ public static class GameSettings
 
     public static void ApplyFocusFixes(AppConfig cfg, int i, IProgress<string>? log = null)
     {
-        Patch(CloudFile(cfg, i), new Dictionary<string, JsonNode?>
+        var cloudOk = Patch(CloudFile(cfg, i), new Dictionary<string, JsonNode?>
         {
             ["unfocusedInput"] = true
         });
-        Patch(LocalFile(cfg, i), new Dictionary<string, JsonNode?>
+        var localOk = Patch(LocalFile(cfg, i), new Dictionary<string, JsonNode?>
         {
             ["fpsLimitEnabled"] = true,
             ["fpsLimit"] = Math.Clamp(cfg.FrameLimit, 30, 240),
-            ["fpsLimitBackgroundEnabled"] = true,
+            // Do not merely raise BeamNG's background cap. Disabling the special
+            // background limiter avoids severe inactive-window throttling seen on
+            // some driver/renderer combinations; the normal session cap still applies.
+            ["fpsLimitBackgroundEnabled"] = false,
             ["fpsLimitBackground"] = Math.Clamp(cfg.FrameLimit, 30, 240),
             ["GraphicDisplayModes"] = "Window"
         });
-        log?.Report($"  P{i}: windowed, input in background, {Math.Clamp(cfg.FrameLimit, 30, 240)} fps cap");
+        if (cloudOk && localOk)
+            log?.Report($"  P{i}: windowed, input in background, background throttle off, {Math.Clamp(cfg.FrameLimit, 30, 240)} fps cap");
+        else
+            log?.Report($"  P{i}: WARNING - could not verify background input/FPS settings; close BeamNG and check profile write access");
     }
 
     /// <summary>Applies the shared audio mix and output device to one profile.</summary>
@@ -168,7 +174,7 @@ public static class GameSettings
     }
 
     /// <summary>Merges keys into a BeamNG settings json, creating it if needed.</summary>
-    private static void Patch(string path, Dictionary<string, JsonNode?> values)
+    private static bool Patch(string path, Dictionary<string, JsonNode?> values)
     {
         try
         {
@@ -187,7 +193,19 @@ public static class GameSettings
             File.WriteAllText(path,
                 obj.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
                 new UTF8Encoding(false));
+
+            // Read back from disk. Previously a locked/read-only profile was silently
+            // accepted, making BeamSplit claim the focus fix was active when it wasn't.
+            var saved = JsonNode.Parse(File.ReadAllText(path))?.AsObject();
+            return saved is not null && values.All(pair =>
+                saved.TryGetPropertyValue(pair.Key, out var actual) &&
+                JsonNode.DeepEquals(actual, pair.Value));
         }
-        catch { /* a settings write failing shouldn't abort a launch */ }
+        catch
+        {
+            // A settings write failing shouldn't abort a launch. Critical callers
+            // inspect the result and emit an actionable warning.
+            return false;
+        }
     }
 }

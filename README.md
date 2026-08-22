@@ -158,7 +158,7 @@ filters, search, redacted **Copy diagnostics**, and **Create support bundle**. T
 | Window placement | `SetWindowPos`, borderless, per monitor or per region |
 
 It forces every profile to windowed mode, keeps audio/input alive in the background,
-and applies the same configurable FPS cap to foreground and background windows:
+disables BeamNG's special background limiter, and applies the configurable session cap:
 
 ```
 AudioMuteOnWindowLoseFocus  true  -> false
@@ -166,8 +166,8 @@ unfocusedInput              false -> true
 GraphicDisplayModes         *     -> Window
 fpsLimitEnabled             *     -> true
 fpsLimit                    *     -> 60 (default)
-fpsLimitBackgroundEnabled   *     -> true
-fpsLimitBackground          *     -> 60 (default)
+fpsLimitBackgroundEnabled   *     -> false
+fpsLimitBackground          *     -> 60 (fallback if re-enabled)
 ```
 
 **Version matching (BeamMP).** The BeamMP launcher always downloads the *newest* client,
@@ -184,6 +184,13 @@ holding ports or replacing one player's compatible client.
 **Both pads drive one car** — Settings → Input isolation should have **Proto Input**
 enabled, and Play should show Proto Input as installed. Stop and relaunch after changing
 input settings. The Console should say `Proto Input pad N, fake focus` for every player.
+
+**The unfocused instance runs at only a few FPS** — Stop every BeamNG instance and
+start a fresh BeamSplit session so the background-throttle fix can be written to both
+profiles. The Console should say `background throttle off` and `Proto Input pad N,
+fake focus` for every player. A warning instead means the profile is locked or
+read-only. Also disable any GPU-driver feature named *Background Application Max Frame
+Rate*, *Radeon Chill*, or equivalent for BeamNG.
 
 **No Multiplayer button** — client/game version mismatch. Setup → *BeamMP client version*
 → Fetch.
