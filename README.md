@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Public beta · v1.8.0**
+**Public beta · v1.8.1**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.

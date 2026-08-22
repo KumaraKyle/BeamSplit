@@ -1,7 +1,9 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using BeamSplit.Core;
 
 namespace BeamSplit.Views;
@@ -11,16 +13,23 @@ public partial class PlayPage : UserControl
     private readonly AppState _state = AppState.Current;
     private readonly Func<int, Task> _launch;
     private readonly Func<Task> _retile;
+    private readonly Func<string, Task<bool>> _switchMap;
     private readonly Action _openSetup;
     private readonly Action _openScreens;
     private bool _loading;
     private bool _launching;
+    private bool _mapsLoaded;
+    private string _selectedMap = "";
+    private string _activeMap = "";
+    private readonly Dictionary<string, Border> _mapCards = new(StringComparer.OrdinalIgnoreCase);
 
-    public PlayPage(Func<int, Task> launch, Func<Task> retile, Action openSetup, Action openScreens)
+    public PlayPage(Func<int, Task> launch, Func<Task> retile, Func<string, Task<bool>> switchMap,
+        Action openSetup, Action openScreens)
     {
         InitializeComponent();
         _launch = launch;
         _retile = retile;
+        _switchMap = switchMap;
         _openSetup = openSetup;
         _openScreens = openScreens;
 
@@ -29,17 +38,32 @@ public partial class PlayPage : UserControl
         BtnOpenScreens.Click += (_, _) => _openScreens();
         BtnConfigureControllers.Click += (_, _) => _openScreens();
         BtnApplyPreset.Click += async (_, _) => await ApplyPresetAsync();
+        BtnSwitchMap.Click += async (_, _) => await SwitchMapAsync();
+        BtnMapPrevious.Click += (_, _) => ScrollMaps(-1);
+        BtnMapNext.Click += (_, _) => ScrollMaps(1);
+        MapScroller.PreviewMouseWheel += (_, e) =>
+        {
+            if (MapScroller.ScrollableWidth <= 0) return;
+            MapScroller.ScrollToHorizontalOffset(Math.Clamp(
+                MapScroller.HorizontalOffset - e.Delta * 0.75, 0, MapScroller.ScrollableWidth));
+            e.Handled = true;
+        };
+        MapScroller.ScrollChanged += (_, _) => UpdateMapScrollButtons();
         CbMode.SelectionChanged += (_, _) => SaveSessionChoices();
         CbPlayers.SelectionChanged += (_, _) => SaveSessionChoices();
         CbAudioMix.SelectionChanged += (_, _) => SaveOptions();
         foreach (var check in new[] { ChkBorderless, ChkIsolate, ChkProtoInput, ChkPlayerMods,
-                                      ChkCinematic, ChkAutoJoin, ChkAudioBackground })
+                                      ChkCinematic, ChkAutoJoin, ChkAudioBackground, ChkLowMemory })
         {
             check.Checked += (_, _) => SaveOptions();
             check.Unchecked += (_, _) => SaveOptions();
         }
         TxtFrameLimit.LostFocus += (_, _) => SaveOptions();
-        Loaded += (_, _) => LoadConfig();
+        Loaded += async (_, _) =>
+        {
+            LoadConfig();
+            if (!_mapsLoaded) await LoadMapsAsync();
+        };
     }
 
     private void LoadConfig()
@@ -53,6 +77,7 @@ public partial class PlayPage : UserControl
         ChkIsolate.IsChecked = cfg.Isolate;
         ChkProtoInput.IsChecked = cfg.UseProtoInput;
         ChkPlayerMods.IsChecked = cfg.UsePlayerMods;
+        ChkLowMemory.IsChecked = cfg.LowMemoryGraphics;
         ChkCinematic.IsChecked = cfg.LaunchCinematic;
         ChkAutoJoin.IsChecked = cfg.AutoJoinBeamMp;
         ChkAudioBackground.IsChecked = cfg.AudioInBackground;
@@ -60,6 +85,7 @@ public partial class PlayPage : UserControl
         CbAudioMix.SelectedIndex = cfg.AudioMixMode switch { "All" => 1, "P0Only" => 2, _ => 0 };
         _loading = false;
         RefreshSummary();
+        RefreshMapState();
     }
 
     private void SaveSessionChoices()
@@ -70,6 +96,7 @@ public partial class PlayPage : UserControl
         cfg.EnsureDefaultPlayers(CbPlayers.SelectedIndex + 1);
         _state.Save();
         RefreshSummary();
+        RefreshMapState();
     }
 
     private void SaveOptions()
@@ -80,6 +107,7 @@ public partial class PlayPage : UserControl
         cfg.Isolate = ChkIsolate.IsChecked == true;
         cfg.UseProtoInput = ChkProtoInput.IsChecked == true;
         cfg.UsePlayerMods = ChkPlayerMods.IsChecked == true;
+        cfg.LowMemoryGraphics = ChkLowMemory.IsChecked == true;
         cfg.LaunchCinematic = ChkCinematic.IsChecked == true;
         cfg.AutoJoinBeamMp = ChkAutoJoin.IsChecked == true;
         cfg.AudioInBackground = ChkAudioBackground.IsChecked == true;
@@ -205,5 +233,138 @@ public partial class PlayPage : UserControl
             }
             : "custom";
         return $"{cfg.Players.Count} player(s) across {screens} display(s) · {mode}.";
+    }
+
+    private async Task LoadMapsAsync()
+    {
+        _mapsLoaded = true;
+        LblMapStatus.Text = "Reading installed BeamNG maps and previews…";
+        var maps = await Task.Run(() => MapCatalog.Discover(_state.Config));
+        _activeMap = ServerConfig.Read(_state.Config).GetValueOrDefault("Map", "/levels/gridmap_v2/info.json");
+        _selectedMap = _activeMap;
+        MapList.Items.Clear();
+        _mapCards.Clear();
+        foreach (var map in maps) MapList.Items.Add(BuildMapCard(map));
+        RefreshMapState();
+        _ = Dispatcher.BeginInvoke(UpdateMapScrollButtons, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private UIElement BuildMapCard(BeamMap map)
+    {
+        var imageHost = new Grid { Height = 86, Background = (Brush)FindResource("BgAlt") };
+        imageHost.Children.Add(new TextBlock
+        {
+            Text = "BEAMNG",
+            Foreground = (Brush)FindResource("Faint"),
+            FontWeight = FontWeights.Bold,
+            FontSize = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        if (map.Thumbnail is { Length: > 0 })
+        {
+            using var stream = new MemoryStream(map.Thumbnail, writable: false);
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.DecodePixelWidth = 340;
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            imageHost.Children.Add(new Image { Source = bitmap, Stretch = Stretch.UniformToFill });
+        }
+
+        var content = new Grid();
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(86) });
+        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        content.Children.Add(imageHost);
+        var title = new TextBlock
+        {
+            Text = map.Title,
+            FontSize = 11.5,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(9, 7, 9, 8)
+        };
+        Grid.SetRow(title, 1);
+        content.Children.Add(title);
+
+        var card = new Border
+        {
+            Width = 172,
+            Background = (Brush)FindResource("CardHi"),
+            BorderBrush = (Brush)FindResource("Line"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(7),
+            ClipToBounds = true,
+            Margin = new Thickness(0, 0, 9, 0),
+            Child = content,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = map.ServerPath
+        };
+        card.MouseLeftButtonUp += (_, _) => SelectMap(map.ServerPath);
+        _mapCards[map.ServerPath] = card;
+        return card;
+    }
+
+    private void SelectMap(string mapPath)
+    {
+        _selectedMap = mapPath;
+        RefreshMapState();
+    }
+
+    private async Task SwitchMapAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedMap)) return;
+        BtnSwitchMap.IsEnabled = false;
+        try
+        {
+            if (await _switchMap(_selectedMap)) _activeMap = _selectedMap;
+        }
+        finally { RefreshMapState(); }
+    }
+
+    private void RefreshMapState()
+    {
+        var beamMp = _state.Config.Mode == "BeamMP";
+        MapCard.Opacity = beamMp ? 1 : 0.55;
+        foreach (var pair in _mapCards)
+        {
+            var selected = pair.Key.Equals(_selectedMap, StringComparison.OrdinalIgnoreCase);
+            pair.Value.BorderBrush = (Brush)FindResource(selected ? "Accent" : "Line");
+            pair.Value.BorderThickness = new Thickness(selected ? 2 : 1);
+        }
+
+        var title = _mapCards.Keys.FirstOrDefault(path => path.Equals(_selectedMap, StringComparison.OrdinalIgnoreCase));
+        var changed = !_selectedMap.Equals(_activeMap, StringComparison.OrdinalIgnoreCase);
+        var running = ServerConfig.IsRunning();
+        BtnSwitchMap.Content = running
+            ? "Switch map · keep games open"
+            : changed ? "Use for next launch" : "Selected for next launch";
+        BtnSwitchMap.IsEnabled = beamMp && !string.IsNullOrWhiteSpace(_selectedMap) && changed;
+        LblMapStatus.Text = !beamMp
+            ? "Map selection applies to BeamMP shared-world sessions."
+            : string.IsNullOrWhiteSpace(title)
+                ? $"Current server map: {_activeMap}"
+                : changed && running
+                    ? _state.Config.AutoJoinBeamMp
+                        ? "New map selected. Switch restarts only the local server; both BeamNG instances stay open and reconnect."
+                        : "New map selected. Both games stay open, but Auto Join is off, so each player must reconnect after the switch."
+                    : running
+                        ? "This map is live. Choose another thumbnail to prepare a switch."
+                        : "Selected for the next BeamMP launch.";
+    }
+
+    private void ScrollMaps(int direction)
+    {
+        var amount = Math.Max(360, MapScroller.ViewportWidth * 0.72);
+        MapScroller.ScrollToHorizontalOffset(Math.Clamp(
+            MapScroller.HorizontalOffset + direction * amount, 0, MapScroller.ScrollableWidth));
+    }
+
+    private void UpdateMapScrollButtons()
+    {
+        BtnMapPrevious.IsEnabled = MapScroller.HorizontalOffset > 1;
+        BtnMapNext.IsEnabled = MapScroller.HorizontalOffset < MapScroller.ScrollableWidth - 1;
     }
 }

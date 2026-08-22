@@ -67,7 +67,7 @@ public sealed class Launcher(AppState state)
             .Select(i => LaunchInstanceAsync(i, beamMp, log, ct))
             .ToArray();
         var gameProcesses = await Task.WhenAll(launches);
-        _gameProcesses.Clear();
+        DisposeTrackedProcesses();
         for (var ordinal = 0; ordinal < gameProcesses.Length; ordinal++)
         {
             var process = gameProcesses[ordinal];
@@ -127,6 +127,39 @@ public sealed class Launcher(AppState state)
             log?.Report($"  P{i}: launch failed - {ex.Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Recover one stopped or unhealthy player without replacing the rest of the
+    /// session. The instance keeps its profile, input assignment, BeamMP port and
+    /// screen region.
+    /// </summary>
+    public async Task RelaunchInstanceAsync(int instance, IProgress<string>? log = null,
+        CancellationToken ct = default)
+    {
+        var cfg = _state.Config;
+        if (!cfg.Players.Any(player => player.Index == instance))
+            throw new ArgumentOutOfRangeException(nameof(instance), $"P{instance} is not configured.");
+        if (!Instances.Exists(cfg, instance))
+            throw new InvalidOperationException($"P{instance} is not built. Use Launch session first.");
+
+        log?.Report($"Relaunching P{instance} without interrupting the other players ...");
+        StopInstanceProcesses(cfg, instance, log);
+        if (cfg.Isolate) InputSetup.DeployInstance(cfg, instance, log);
+
+        var beamMp = cfg.Mode == "BeamMP";
+        if (beamMp && !ServerConfig.IsRunning())
+        {
+            log?.Report("BeamMP server is offline; starting it for the recovered player ...");
+            ServerConfig.Start(cfg);
+            await Task.Delay(3000, ct);
+        }
+
+        var process = await LaunchInstanceAsync(instance, beamMp, log, ct);
+        if (process is null) throw new InvalidOperationException($"P{instance} did not start.");
+        _gameProcesses[instance] = process;
+        await TileInstanceAsync(instance, process, log, ct);
+        log?.Report($"P{instance} recovery complete; the other instances were left running.");
     }
 
     private static async Task HideBeamNgConsoleAsync(Process process, CancellationToken ct)
@@ -236,6 +269,33 @@ public sealed class Launcher(AppState state)
 
         if (stopped > 0)
             log?.Report($"Stopped {stopped} process(es) from the previous BeamSplit session.");
+    }
+
+    private static void StopInstanceProcesses(AppConfig cfg, int instance, IProgress<string>? log)
+    {
+        var root = Path.GetFullPath(Instances.InstanceDir(cfg, instance))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        var stopped = 0;
+        foreach (var name in new[] { "BeamMP-Launcher", "BeamNG.drive", "BeamNG.drive.x64" })
+        {
+            foreach (var process in Process.GetProcessesByName(name))
+            {
+                try
+                {
+                    var path = process.MainModule?.FileName;
+                    if (string.IsNullOrWhiteSpace(path) ||
+                        !Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    process.Kill(true);
+                    process.WaitForExit(3000);
+                    stopped++;
+                }
+                catch { }
+                finally { process.Dispose(); }
+            }
+        }
+        if (stopped > 0) log?.Report($"  P{instance}: cleared {stopped} leftover process(es)");
     }
 
     private static void ResetLauncherLog(AppConfig cfg, int i)
@@ -444,6 +504,64 @@ public sealed class Launcher(AppState state)
         return touched.Count;
     }
 
+    private async Task TileInstanceAsync(int instance, Process launched,
+        IProgress<string>? log, CancellationToken ct)
+    {
+        var cfg = _state.Config;
+        var slot = cfg.Players.First(player => player.Index == instance);
+        var deadline = DateTime.UtcNow.AddMinutes(5);
+        var firstWindowAt = DateTime.MinValue;
+        var stablePasses = 0;
+        var acquired = false;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            ct.ThrowIfCancellationRequested();
+            Process? process = launched;
+            try
+            {
+                process.Refresh();
+                if (process.HasExited || process.MainWindowHandle == IntPtr.Zero)
+                    process = Tiling.WindowForInstance(cfg, instance);
+            }
+            catch { process = Tiling.WindowForInstance(cfg, instance); }
+
+            if (process is not null)
+            {
+                try
+                {
+                    Native.HideBeamNgConsoleWindows((uint)process.Id);
+                    process.Refresh();
+                    var hwnd = process.MainWindowHandle;
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        if (firstWindowAt == DateTime.MinValue) firstWindowAt = DateTime.UtcNow;
+                        var rect = Tiling.RegionFor(slot, Native.GetMonitors());
+                        if (!Tiling.Matches(hwnd, rect, cfg.Borderless))
+                        {
+                            Tiling.Place(hwnd, rect, cfg.Borderless);
+                            stablePasses = 0;
+                        }
+                        else stablePasses++;
+
+                        if (!acquired)
+                        {
+                            acquired = true;
+                            log?.Report($"  P{instance}: recovered window at {rect.X},{rect.Y} {rect.W}x{rect.H}; stabilizing ...");
+                        }
+                        if (stablePasses >= 8 && DateTime.UtcNow - firstWindowAt >= TimeSpan.FromSeconds(15))
+                            break;
+                    }
+                }
+                catch { }
+            }
+            await Task.Delay(250, ct);
+        }
+
+        if (!acquired) throw new InvalidOperationException($"P{instance} started but did not create a game window.");
+        Tiling.ParkFocus();
+    }
+
     private Process? ResolveRunningProcess(AppConfig cfg, int instance, IReadOnlyList<Process> windows)
     {
         if (_gameProcesses.TryGetValue(instance, out var tracked))
@@ -454,7 +572,7 @@ public sealed class Launcher(AppState state)
                 if (!tracked.HasExited && tracked.MainWindowHandle != IntPtr.Zero) return tracked;
             }
             catch { }
-            _gameProcesses.Remove(instance);
+            if (_gameProcesses.Remove(instance, out var stale)) stale.Dispose();
         }
         return Tiling.WindowForInstance(cfg, instance, windows);
     }
@@ -466,10 +584,18 @@ public sealed class Launcher(AppState state)
             foreach (var p in Process.GetProcessesByName(name))
             {
                 try { p.Kill(true); } catch { }
+                finally { p.Dispose(); }
             }
         }
-        _gameProcesses.Clear();
+        DisposeTrackedProcesses();
         log?.Report("Stopped all instances and launchers.");
+    }
+
+    private void DisposeTrackedProcesses()
+    {
+        foreach (var process in _gameProcesses.Values)
+            process.Dispose();
+        _gameProcesses.Clear();
     }
 
     public void StopAll(IProgress<string>? log = null)

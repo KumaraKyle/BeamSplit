@@ -90,6 +90,7 @@ public sealed class AppConfig
     public string? SteamEmuPath { get; set; }
 
     public bool ApplyGraphics { get; set; }
+    public bool LowMemoryGraphics { get; set; } = true;
     public int Aniso { get; set; } = 4;
     public int AntiAlias { get; set; } = 1;
     public bool NoShadows { get; set; }

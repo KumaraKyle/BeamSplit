@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 1.8.1
+
+- Added per-player recovery controls to Session: a stopped, crashed, or unhealthy
+  instance can relaunch with its existing profile, controller, BeamMP port and screen
+  assignment without interrupting healthy players or the local server.
+- Added a thumbnail map picker to Play using artwork read directly from the installed
+  BeamNG archives. A live switch restarts only the local BeamMP server, leaving every
+  BeamNG process open while BeamSplit auto-join, when enabled, reconnects them onto the
+  new map.
+- Replaced the nested map-strip scrollbar with a wheel/trackpad-aware carousel and
+  large previous/next controls.
+- Reduced multi-instance memory overhead by sharing immutable Bin64 files across
+  instances and disposing recurring native process handles correctly.
+- Added an optional low-memory graphics preset based on BeamNG 0.39's Lowest settings:
+  quarter-resolution textures, minimum world detail, and expensive reflections,
+  vegetation, clouds and post-processing disabled.
+- Added a pre-launch memory advisor for Italy, Utah, West Coast USA and Johnson Valley.
+  On constrained multi-player systems it shows installed/free RAM and offers to enable
+  the low-memory preset without blocking users who prefer their current settings.
+- Fixed the offline map picker so selecting a new map enables “Use for next launch,”
+  then clearly reports when that choice has been saved.
+
 ## 1.8.0
 
 - Split the crowded launch/setup workspace into dedicated Setup and Play pages. Setup

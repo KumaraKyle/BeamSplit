@@ -85,6 +85,42 @@
         </Border>
       </Grid>
 
+      <Border x:Name="MapCard" Style="{StaticResource CardStyle}">
+        <StackPanel>
+          <Grid>
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="BeamMP map"/>
+              <TextBlock Style="{StaticResource Sub}"
+                         Text="Choose from the maps installed with BeamNG. Preview artwork is read directly from the game without extracting it."/>
+            </StackPanel>
+            <Button x:Name="BtnSwitchMap" Style="{StaticResource Primary}"
+                    Content="Switch map · keep games open" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+          </Grid>
+          <TextBlock x:Name="LblMapStatus" Foreground="{StaticResource Muted}" FontSize="11.5"
+                     Text="Reading installed maps…" Margin="0,0,0,9" TextWrapping="Wrap"/>
+          <Border Background="#0D1118" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="42"/><ColumnDefinition Width="*"/><ColumnDefinition Width="42"/>
+              </Grid.ColumnDefinitions>
+              <Button x:Name="BtnMapPrevious" Grid.Column="0" Content="‹" FontSize="25" Padding="0"
+                      ToolTip="Previous maps" BorderThickness="0,0,1,0"/>
+              <ScrollViewer x:Name="MapScroller" Grid.Column="1"
+                            HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                            PanningMode="HorizontalOnly" CanContentScroll="False" Padding="8">
+                <ItemsControl x:Name="MapList">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </ScrollViewer>
+              <Button x:Name="BtnMapNext" Grid.Column="2" Content="›" FontSize="25" Padding="0"
+                      ToolTip="More maps" BorderThickness="1,0,0,0"/>
+            </Grid>
+          </Border>
+        </StackPanel>
+      </Border>
+
       <Border Style="{StaticResource CardStyle}">
         <StackPanel>
           <TextBlock Style="{StaticResource H2}" Text="Launch options"/>
@@ -96,6 +132,7 @@
               <CheckBox x:Name="ChkIsolate" Content="One controller per instance"/>
               <CheckBox x:Name="ChkProtoInput" Content="Focus-independent Proto Input routing"/>
               <CheckBox x:Name="ChkPlayerMods" Content="Mount my shared mod library"/>
+              <CheckBox x:Name="ChkLowMemory" Content="Low-memory graphics · Italy/Utah"/>
             </StackPanel>
             <StackPanel Grid.Column="2">
               <CheckBox x:Name="ChkCinematic" Content="Play launch cinematic"/>

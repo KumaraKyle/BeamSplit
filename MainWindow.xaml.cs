@@ -24,6 +24,8 @@ public partial class MainWindow : Window
     private RadioButton? _current;
     private int _tourIndex;
     private bool _launching;
+    private bool _relaunching;
+    private readonly HashSet<string> _memoryAdviceShown = new(StringComparer.OrdinalIgnoreCase);
 
     public MainWindow()
     {
@@ -51,6 +53,7 @@ public partial class MainWindow : Window
             () => NavSettings.IsChecked = true,
             StartTour);
         _pages[NavPlay] = () => new PlayPage(LaunchAsync, RetileRunningAsync,
+            SwitchMapAsync,
             () => NavSetup.IsChecked = true,
             () => NavScreens.IsChecked = true);
         _pages[NavScreens] = () => new ScreensPage(LaunchAsync, RetileRunningAsync);
@@ -58,6 +61,8 @@ public partial class MainWindow : Window
         _pages[NavMods] = () => new ModsPage();
         _pages[NavSession] = () => new SessionPage(_session,
             LaunchAsync,
+            RelaunchInstanceAsync,
+            () => !_launching && !_relaunching,
             RetileRunningAsync,
             () => { _launcher.StopSession(_state.Progress()); _focus.Stop(); },
             () => { _launcher.StopAll(_state.Progress()); _focus.Stop(); });
@@ -319,6 +324,24 @@ public partial class MainWindow : Window
         }
 
         cfg.EnsureDefaultPlayers(players);
+
+        var mapPath = cfg.Mode == "BeamMP"
+            ? ServerConfig.Read(cfg).GetValueOrDefault("Map", "")
+            : "";
+        var machine = SystemStats.Capture();
+        var advice = MemoryAdvisor.Evaluate(cfg, players, mapPath,
+            machine.TotalMemoryMb, Math.Max(0, machine.TotalMemoryMb - machine.UsedMemoryMb));
+        if (advice is not null && _memoryAdviceShown.Add(mapPath))
+        {
+            var dialog = new MemoryAdviceDialog(advice) { Owner = this };
+            if (dialog.ShowDialog() == true)
+            {
+                cfg.LowMemoryGraphics = true;
+                _state.Log($"Low-memory graphics enabled for {advice.MapName} on a {advice.TotalMemoryMb / 1024d:0.0} GB system.");
+            }
+            else
+                _state.Log($"Low-memory recommendation declined for {advice.MapName}; continuing with current graphics.");
+        }
         _state.Save();
 
         SetStatus($"Launching {players} instances...");
@@ -354,6 +377,80 @@ public partial class MainWindow : Window
             SetStatus("Launch failed - see the console.");
         }
         finally { _launching = false; }
+    }
+
+    private async Task RelaunchInstanceAsync(int instance)
+    {
+        if (_launching || _relaunching)
+        {
+            SetStatus("Another launch is already in progress.");
+            return;
+        }
+
+        _relaunching = true;
+        SetStatus($"Relaunching Player {instance + 1} ...");
+        try
+        {
+            await Task.Run(() => _launcher.RelaunchInstanceAsync(instance, _state.WorkerProgress()));
+            _logs.Rebuild(_state.Config);
+            _session.Refresh();
+            SetStatus($"Player {instance + 1} relaunched without interrupting the session.");
+        }
+        catch (Exception ex)
+        {
+            _state.Log($"P{instance} relaunch failed: {ex.Message}");
+            SetStatus($"Player {instance + 1} relaunch failed - see Console.");
+        }
+        finally { _relaunching = false; }
+    }
+
+    private async Task<bool> SwitchMapAsync(string mapPath)
+    {
+        if (_launching || _relaunching)
+        {
+            SetStatus("Wait for the current launch before switching maps.");
+            return false;
+        }
+
+        var cfg = _state.Config;
+        if (cfg.Mode != "BeamMP") return false;
+        var wasRunning = ServerConfig.IsRunning();
+        SetStatus(wasRunning ? "Switching BeamMP map; game instances stay open ..." : "Saving BeamMP map ...");
+        try
+        {
+            await Task.Run(async () =>
+            {
+                if (wasRunning)
+                {
+                    ServerConfig.Stop();
+                    for (var pass = 0; pass < 30 && ServerConfig.IsRunning(); pass++)
+                        await Task.Delay(100);
+                }
+                if (!ServerConfig.Write(cfg, new Dictionary<string, string> { ["Map"] = mapPath }))
+                    throw new InvalidOperationException("The BeamMP server config is unavailable.");
+                _state.Log($"Server map set to {mapPath}");
+                if (wasRunning)
+                {
+                    ServerConfig.Start(cfg);
+                    await Task.Delay(1500);
+                    if (!ServerConfig.IsRunning())
+                        throw new InvalidOperationException("The BeamMP server did not restart.");
+                }
+            });
+            _session.Refresh();
+            SetStatus(wasRunning
+                ? cfg.AutoJoinBeamMp
+                    ? "Map switched. Running games are reconnecting to the restarted server."
+                    : "Map switched. Games stayed open; reconnect manually because Auto Join is off."
+                : "Map saved for the next BeamMP launch.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _state.Log("Map switch failed: " + ex.Message);
+            SetStatus("Map switch failed - see Console.");
+            return false;
+        }
     }
 
     private async Task PlayCinematicAsync(int players, Task? launchTask = null)

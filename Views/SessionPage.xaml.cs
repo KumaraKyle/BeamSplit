@@ -15,16 +15,22 @@ public partial class SessionPage : UserControl
     private readonly AppState _state = AppState.Current;
     private readonly SessionMonitor _monitor;
     private readonly Func<int, Task> _launch;
+    private readonly Func<int, Task> _relaunch;
+    private readonly Func<bool> _canRelaunch;
     private readonly Func<Task> _retile;
     private readonly Action _stopSession;
     private readonly Action _stopAll;
+    private readonly HashSet<int> _relaunching = [];
 
-    public SessionPage(SessionMonitor monitor, Func<int, Task> launch, Func<Task> retile,
+    public SessionPage(SessionMonitor monitor, Func<int, Task> launch, Func<int, Task> relaunch,
+        Func<bool> canRelaunch, Func<Task> retile,
         Action stopSession, Action stopAll)
     {
         InitializeComponent();
         _monitor = monitor;
         _launch = launch;
+        _relaunch = relaunch;
+        _canRelaunch = canRelaunch;
         _retile = retile;
         _stopSession = stopSession;
         _stopAll = stopAll;
@@ -239,6 +245,30 @@ public partial class SessionPage : UserControl
         grid.Children.Add(text);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top };
+        if ((st.State is InstanceState.Idle or InstanceState.WaitingForLauncher or InstanceState.Error) &&
+            !_relaunching.Contains(st.Index) && _canRelaunch())
+        {
+            var relaunch = new Button
+            {
+                Content = "Relaunch instance",
+                Style = (Style)FindResource("Primary"),
+                Margin = new Thickness(0, 0, 6, 0),
+                ToolTip = "Restart only this player's game and launcher, preserving the rest of the session"
+            };
+            relaunch.Click += async (_, _) =>
+            {
+                if (!_relaunching.Add(st.Index)) return;
+                relaunch.IsEnabled = false;
+                relaunch.Content = "Relaunching…";
+                try { await _relaunch(st.Index); }
+                finally
+                {
+                    _relaunching.Remove(st.Index);
+                    _monitor.Refresh();
+                }
+            };
+            actions.Children.Add(relaunch);
+        }
         var openLog = new Button { Content = "Log", Style = (Style)FindResource("Small"), Margin = new Thickness(0, 0, 6, 0) };
         openLog.Click += (_, _) =>
         {

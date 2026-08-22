@@ -217,6 +217,13 @@ public sealed partial class SessionMonitor
 
         Items = list;
         Updated?.Invoke();
+
+        // Process.GetProcesses* allocates native handles. Refresh runs every two
+        // seconds, so retaining these temporary wrappers steadily exhausts handles and
+        // unmanaged memory during a long session.
+        srvProc?.Dispose();
+        foreach (var process in games) process.Dispose();
+        foreach (var process in launchers) process.Dispose();
     }
 
     private double SampleCpu(Process process)

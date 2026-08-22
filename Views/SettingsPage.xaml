@@ -118,6 +118,9 @@
       <Border Style="{StaticResource CardStyle}">
         <StackPanel>
           <TextBlock Style="{StaticResource H2}" Text="Graphics applied to every instance" Margin="0,0,0,12"/>
+          <CheckBox x:Name="ChkLowMemoryGfx" Content="Low-memory mode · quarter textures and minimum world detail"/>
+          <TextBlock Style="{StaticResource Sub}" Margin="24,0,0,8"
+                     Text="Recommended for Italy/Utah with multiple players. Disables reflections, mirrors, grass, clouds and post-processing."/>
           <CheckBox x:Name="ChkApplyGfx" Content="Apply these on launch"/>
           <Grid Margin="0,6,0,0">
             <Grid.ColumnDefinitions>

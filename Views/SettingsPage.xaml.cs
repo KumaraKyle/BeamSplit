@@ -110,6 +110,7 @@ public partial class SettingsPage : UserControl
         LoadAudioDevices();
 
         ChkApplyGfx.IsChecked = c.ApplyGraphics;
+        ChkLowMemoryGfx.IsChecked = c.LowMemoryGraphics;
         CbAniso.SelectedIndex = c.Aniso switch { 0 => 0, 2 => 1, 4 => 2, 8 => 3, 16 => 4, _ => 2 };
         CbAA.SelectedIndex = Math.Clamp(c.AntiAlias, 0, 3);
         ChkNoShadows.IsChecked = c.NoShadows;
@@ -241,6 +242,7 @@ public partial class SettingsPage : UserControl
         c.UseSteamEmu = wantEmu;
 
         c.ApplyGraphics = ChkApplyGfx.IsChecked == true;
+        c.LowMemoryGraphics = ChkLowMemoryGfx.IsChecked == true;
         c.Aniso = CbAniso.SelectedIndex switch { 0 => 0, 1 => 2, 2 => 4, 3 => 8, _ => 16 };
         c.AntiAlias = Math.Max(0, CbAA.SelectedIndex);
         c.NoShadows = ChkNoShadows.IsChecked == true;

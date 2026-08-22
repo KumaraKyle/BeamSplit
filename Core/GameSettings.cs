@@ -88,6 +88,47 @@ public static class GameSettings
 
     public static void ApplyGraphics(AppConfig cfg, int i, IProgress<string>? log = null)
     {
+        if (cfg.LowMemoryGraphics)
+        {
+            // BeamNG 0.39's own Lowest preset. Texture=Lowest caps textures at quarter
+            // resolution, the largest documented VRAM/streaming reduction. Keeping the
+            // complete preset together avoids expensive features being silently left on.
+            Patch(LocalFile(cfg, i), new Dictionary<string, JsonNode?>
+            {
+                ["GraphicOverallQuality"] = "Custom",
+                ["GraphicMeshQuality"] = "Lowest",
+                ["GraphicTerrainQuality"] = "Lowest",
+                ["GraphicTextureQuality"] = "Lowest",
+                ["GraphicLightingQuality"] = "Lowest",
+                ["GraphicShadowsQuality"] = "Lowest",
+                ["lastSplitCastersEnabled"] = false,
+                ["vehicleShadowEnabled"] = false,
+                ["GraphicMaxDecalCount"] = 1000,
+                ["GraphicGrassDensity"] = 0,
+                ["GraphicAnisotropic"] = 0,
+                ["GraphicAntialias"] = 0,
+                ["GraphicAntialiasType"] = "fxaa",
+                ["GraphicDynReflectionEnabled"] = false,
+                ["GraphicDynReflectionFacesPerupdate"] = 1,
+                ["GraphicDynReflectionDetail"] = 0,
+                ["GraphicDynReflectionDistance"] = 10,
+                ["GraphicDynReflectionTexsize"] = 0,
+                ["GraphicDynMirrorsEnabled"] = false,
+                ["GraphicDynMirrorsDetail"] = 0,
+                ["GraphicDynMirrorsDistance"] = 10,
+                ["GraphicDynMirrorsTexsize"] = 0,
+                ["GraphicCloudsQuality"] = "Disabled",
+                ["GraphicClusteredQuality"] = "Lowest",
+                ["PostFXSSAOGeneralEnabled"] = false,
+                ["PostFXScreenSpaceShadowsEnabled"] = false,
+                ["PostFXDOFGeneralEnabled"] = false,
+                ["PostFXMotionBlurEnabled"] = false,
+                ["SkipGenerateLicencePlate"] = true,
+                ["uiAcceleratedRender"] = false
+            });
+            log?.Report($"  P{i}: LOW-MEMORY graphics (quarter textures, lowest world detail, reflections/grass/post-FX off)");
+            return;
+        }
         if (!cfg.ApplyGraphics) return;
         Patch(LocalFile(cfg, i), new Dictionary<string, JsonNode?>
         {

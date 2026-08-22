@@ -50,6 +50,21 @@ public static class SelfTest
             finally { try { Directory.Delete(safetyProbe, true); } catch { } }
             W("");
 
+            W("-- memory advisor --");
+            var normalGraphics = new AppConfig { LowMemoryGraphics = false };
+            var italy16 = MemoryAdvisor.Evaluate(normalGraphics, 2, "/levels/italy/info.json",
+                16 * 1024, 5 * 1024);
+            var grid16 = MemoryAdvisor.Evaluate(normalGraphics, 2, "/levels/gridmap_v2/info.json",
+                16 * 1024, 5 * 1024);
+            var italy32 = MemoryAdvisor.Evaluate(normalGraphics, 2, "/levels/italy/info.json",
+                32 * 1024, 20 * 1024);
+            var alreadyLow = MemoryAdvisor.Evaluate(new AppConfig { LowMemoryGraphics = true }, 2,
+                "/levels/utah/info.json", 16 * 1024, 5 * 1024);
+            var advicePass = italy16?.MapName == "Italy" && grid16 is null && italy32 is null && alreadyLow is null;
+            W($"  launch warning: {(advicePass ? "PASS" : "FAIL")} (heavy map / RAM / preset boundaries)");
+            if (!advicePass) throw new InvalidOperationException("memory advisor regression");
+            W("");
+
             var cfg = ConfigStore.Load();
             var version = Detect.GameVersion(cfg);
             var major = Detect.GameMajor(version);
@@ -194,6 +209,16 @@ public static class SelfTest
             }
             foreach (var device in audioDevices) W($"  device      : {device}");
             if (AudioDevices.LastError != null) W($"  enumeration : {AudioDevices.LastError}");
+            W("");
+
+            W("-- map catalog --");
+            var maps = MapCatalog.Discover(cfg);
+            var mapCatalogPass = maps.Count >= 10 && maps.All(map =>
+                map.ServerPath.StartsWith("/levels/", StringComparison.Ordinal) &&
+                map.ServerPath.EndsWith("/info.json", StringComparison.Ordinal));
+            W($"  discovered  : {maps.Count} map(s), {maps.Count(map => map.Thumbnail is { Length: > 0 })} preview(s)");
+            W($"  paths       : {(mapCatalogPass ? "PASS" : "FAIL")}");
+            if (!mapCatalogPass) throw new InvalidOperationException("BeamNG map catalog regression");
             W("");
 
             W("-- monitors (order is NOT stable; keyed by DeviceName) --");

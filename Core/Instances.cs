@@ -19,6 +19,14 @@ namespace BeamSplit.Core;
 /// </summary>
 public static partial class Instances
 {
+    private static readonly HashSet<string> PrivateBinFiles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Per-instance input and Steam integration files may be replaced in-place.
+        "xinput1_4.dll", "xinput9_1_0.dll", "dinput8.dll",
+        "xinput_filter.ini", "devreorder.ini",
+        "steam_api64.dll", "steam_api.dll", "steamclient64.dll", "local_save.txt"
+    };
+
     [LibraryImport("kernel32.dll", EntryPoint = "CreateHardLinkW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool CreateHardLink(string newFile, string existingFile, IntPtr attrs);
@@ -54,6 +62,7 @@ public static partial class Instances
         {
             EnsureStartupIni(cfg, i);
             RepairMissingBin64Files(cfg, i, log);
+            ShareExistingBin64(cfg, i, log);
             return;
         }
 
@@ -83,10 +92,13 @@ public static partial class Instances
             }
         }
 
-        // Bin64 -> real copy
-        log?.Report($"  copying Bin64 (about 500MB) ...");
+        // Immutable game code is hardlinked to one file identity. Windows can then
+        // share its clean executable/DLL pages between BeamNG processes. Files that
+        // BeamSplit customises remain private copies.
+        log?.Report($"  linking shared Bin64 files (private fallbacks are copied) ...");
         var srcBin = Path.Combine(root, "Bin64");
-        CopyDirectory(srcBin, Bin64(cfg, i));
+        LinkBin64(srcBin, Bin64(cfg, i));
+        MarkBin64Shared(cfg, i);
 
         // Antivirus can quarantine files DURING the copy, which leaves an instance that
         // launches and dies with 0xC0000906 or "DLL was not found" - impossible to
@@ -239,12 +251,67 @@ public static partial class Instances
         return missing;
     }
 
-    private static void CopyDirectory(string source, string dest)
+    private static void LinkBin64(string source, string dest)
     {
         Directory.CreateDirectory(dest);
         foreach (var dir in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
-            Directory.CreateDirectory(dir.Replace(source, dest));
+            Directory.CreateDirectory(Path.Combine(dest, Path.GetRelativePath(source, dir)));
         foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-            File.Copy(file, file.Replace(source, dest), true);
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(dest, relative);
+            if (MustRemainPrivate(relative) || !CreateHardLink(target, file, IntPtr.Zero))
+                File.Copy(file, target, true);
+        }
+    }
+
+    /// <summary>Migrates matching old copies to shared files without a rebuild.</summary>
+    private static void ShareExistingBin64(AppConfig cfg, int i, IProgress<string>? log)
+    {
+        var marker = SharedBinMarker(cfg, i);
+        if (File.Exists(marker)) return;
+        var source = Path.Combine(cfg.GameRoot!, "Bin64");
+        var dest = Bin64(cfg, i);
+        var linked = 0;
+        foreach (var sourceFile in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, sourceFile);
+            if (MustRemainPrivate(relative)) continue;
+            var target = Path.Combine(dest, relative);
+            try
+            {
+                var src = new FileInfo(sourceFile);
+                var dst = new FileInfo(target);
+                if (!dst.Exists || src.Length != dst.Length || src.LastWriteTimeUtc != dst.LastWriteTimeUtc)
+                    continue;
+                var replacement = target + ".beamsplit-link";
+                try
+                {
+                    if (!CreateHardLink(replacement, sourceFile, IntPtr.Zero)) continue;
+                    File.Move(replacement, target, true);
+                    linked++;
+                }
+                finally { try { File.Delete(replacement); } catch { } }
+            }
+            catch { /* locked or uncertain files safely stay private */ }
+        }
+        MarkBin64Shared(cfg, i);
+        if (linked > 0) log?.Report($"  P{i}: shared {linked} immutable Bin64 file(s) across instances");
+    }
+
+    private static string SharedBinMarker(AppConfig cfg, int i) =>
+        Path.Combine(GameDir(cfg, i), ".beamsplit-shared-bin64");
+
+    private static void MarkBin64Shared(AppConfig cfg, int i)
+    {
+        try { File.WriteAllText(SharedBinMarker(cfg, i), "1"); } catch { }
+    }
+
+    private static bool MustRemainPrivate(string relative)
+    {
+        var name = Path.GetFileName(relative);
+        return PrivateBinFiles.Contains(name)
+            || name.StartsWith("steam_api64.dll.beamsplit-", StringComparison.OrdinalIgnoreCase)
+            || relative.StartsWith("steam_settings" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 }
