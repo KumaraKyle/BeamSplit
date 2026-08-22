@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.3
+
+- Made Multi-instance the default on every normal app startup. Single-instance now
+  requires an explicit warning confirmation before every launch and defaults to Cancel.
+
 ## 1.9.2
 
 - Disabled BeamNG's special inactive-window FPS limiter in every multi-instance

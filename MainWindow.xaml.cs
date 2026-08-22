@@ -331,6 +331,26 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
+        {
+            var answer = MessageBox.Show(this,
+                "Single-instance mode honestly sucks right now and probably won't work correctly on your setup.\n\n" +
+                "It may crash, show a black screen, break the menus or map, or give both players the wrong view. " +
+                "I'm actively working on it.\n\n" +
+                "Use Multi-instance · stable unless you're deliberately testing the experimental engine.\n\n" +
+                "Launch single-instance anyway?",
+                "Single instance is VERY experimental",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No);
+            if (answer != MessageBoxResult.Yes)
+            {
+                SetStatus("Experimental launch cancelled. Choose Multi-instance · stable to play.");
+                _state.Log("Single-instance launch cancelled at the experimental warning.");
+                return;
+            }
+        }
+
         cfg.EnsureDefaultPlayers(players);
 
         var mapPath = cfg.Mode == "BeamMP"

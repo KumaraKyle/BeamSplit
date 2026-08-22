@@ -56,6 +56,10 @@ map inside BeamNG and the second vehicle, split views and per-player HUD activat
 the map finishes loading. Two-monitor layouts use one borderless window spanning the
 chosen displays.
 
+Multi-instance is always selected again when BeamSplit starts. Launching the experimental
+engine shows a final warning and requires explicit confirmation; cancelling returns to
+BeamSplit without starting or changing the session.
+
 This mode is offline-only and deliberately version-gated. It uses camera-context and
 render-view APIs shipped in newer BeamNG builds but not documented as a stable public
 split-screen interface. If BeamSplit cannot find the required APIs, it leaves the game

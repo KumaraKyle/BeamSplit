@@ -124,6 +124,15 @@ public partial class App : Application
                 splash.SetStep("Loading configuration...");
                 AppState.Current.Load();
 
+                // Experimental single-instance is deliberately opt-in per app run.
+                // Never let yesterday's test selection become today's default launch.
+                if (AppState.Current.Config.SessionEngine == SessionEngine.SingleInstanceExperimental)
+                {
+                    AppState.Current.Config.SessionEngine = SessionEngine.MultiInstance;
+                    AppState.Current.Save();
+                    AppState.Current.Log("Session engine reset to Multi-instance (stable). Single-instance must be selected explicitly each run.");
+                }
+
                 splash.SetStep("Unpacking input proxy...");
                 NativeAssets.Extract(AppState.Current.Progress());
 
