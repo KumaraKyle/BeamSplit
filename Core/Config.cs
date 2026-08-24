@@ -47,6 +47,10 @@ public sealed class AppConfig
     public bool AutoUpdateCheck { get; set; } = true;
     public DateTime? LastUpdateCheckUtc { get; set; }
     public string? SkippedUpdateVersion { get; set; }
+    public int SuccessfulSessionLaunches { get; set; }
+    public DateTime? SupportPromptNextUtc { get; set; }
+    public bool SupportPromptNeverAgain { get; set; }
+    public bool NativeSplitNoticeDismissed { get; set; }
 
     public string? GameRoot { get; set; }
     public string? LauncherExe { get; set; }

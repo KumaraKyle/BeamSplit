@@ -17,21 +17,21 @@ public static class MemoryAdvisor
     public static MemoryAdvice? Evaluate(AppConfig cfg, int players, string? mapPath,
         long totalMemoryMb, long availableMemoryMb)
     {
-        if (cfg.LowMemoryGraphics || players < 2 || string.IsNullOrWhiteSpace(mapPath)) return null;
+        // Single-instance loads the world once and deliberately inherits normal BeamNG visuals;
+        // never offer a switch that only applies to the multi-process engine.
+        if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental || cfg.LowMemoryGraphics ||
+            players < 2 || string.IsNullOrWhiteSpace(mapPath)) return null;
         var id = mapPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries)
             .SkipWhile(part => !part.Equals("levels", StringComparison.OrdinalIgnoreCase))
             .Skip(1).FirstOrDefault();
         if (id is null || !HeavyMaps.TryGetValue(id, out var name)) return null;
 
-        var single = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental;
-        var installedThresholdMb = single ? 12 * 1024L : 20 * 1024L;
-        var availableThresholdMb = single ? 3 * 1024L : 6 * 1024L;
+        var installedThresholdMb = 20 * 1024L;
+        var availableThresholdMb = 6 * 1024L;
         if (totalMemoryMb > installedThresholdMb && availableMemoryMb > availableThresholdMb) return null;
 
         var reason = totalMemoryMb <= installedThresholdMb
-            ? single
-                ? "The map is loaded once, but its assets and both simulated vehicles still need memory."
-                : "Large-world assets are loaded separately by every BeamNG instance."
+            ? "Large-world assets are loaded separately by every BeamNG instance."
             : "Other applications are already using most of the available memory.";
         return new MemoryAdvice(name, players, totalMemoryMb, availableMemoryMb, reason);
     }

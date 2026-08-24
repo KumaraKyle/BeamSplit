@@ -37,6 +37,12 @@ public partial class PlayPage : UserControl
         BtnOpenSetup.Click += (_, _) => _openSetup();
         BtnOpenScreens.Click += (_, _) => _openScreens();
         BtnConfigureControllers.Click += (_, _) => _openScreens();
+        BtnTryNativeSplit.Click += (_, _) =>
+        {
+            CbEngine.SelectedIndex = 1;
+            DismissNativeSplitNotice();
+        };
+        BtnDismissNativeSplit.Click += (_, _) => DismissNativeSplitNotice();
         BtnApplyPreset.Click += async (_, _) => await ApplyPresetAsync();
         BtnSwitchMap.Click += async (_, _) => await SwitchMapAsync();
         BtnMapPrevious.Click += (_, _) => ScrollMaps(-1);
@@ -71,6 +77,8 @@ public partial class PlayPage : UserControl
     {
         _loading = true;
         var cfg = _state.Config;
+        NativeSplitNotice.Visibility = cfg.NativeSplitNoticeDismissed
+            ? Visibility.Collapsed : Visibility.Visible;
         CbEngine.SelectedIndex = cfg.SessionEngine == SessionEngine.SingleInstanceExperimental ? 1 : 0;
         CbMode.SelectedIndex = cfg.Mode == "Solo" ? 1 : 0;
         CbPlayers.SelectedIndex = Math.Clamp(Math.Max(1, cfg.Players.Count) - 1, 0, 3);
@@ -88,6 +96,13 @@ public partial class PlayPage : UserControl
         _loading = false;
         RefreshSummary();
         RefreshMapState();
+    }
+
+    private void DismissNativeSplitNotice()
+    {
+        NativeSplitNotice.Visibility = Visibility.Collapsed;
+        _state.Config.NativeSplitNoticeDismissed = true;
+        _state.Save();
     }
 
     private void SaveSessionChoices()
@@ -236,6 +251,7 @@ public partial class PlayPage : UserControl
         ChkIsolate.IsEnabled = multi;
         ChkProtoInput.IsEnabled = multi;
         CbAudioMix.IsEnabled = multi;
+        ChkLowMemory.IsEnabled = multi;
     }
 
     private static string ControllerSummary(AppConfig cfg)

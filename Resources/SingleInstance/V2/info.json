@@ -1,0 +1,9 @@
+{
+  "title": "BeamSplit v2 - Local Split-Screen",
+  "tagid": "beamsplit",
+  "version_string": "2.0.0",
+  "filename": "beamsplit.zip",
+  "username": "tresf",
+  "description": "Local split-screen multiplayer for 2-4 players inside a single BeamNG instance. One process, one physics world, one render loop, and an independent camera view per player. Bind 'Toggle split-screen' in Options > Controls, or use beamsplit.on(2) in the console."
+}
+

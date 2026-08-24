@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\BeamSplit.ico</ApplicationIcon>
-    <Version>1.9.3</Version>
+    <Version>1.9.4</Version>
     <Product>BeamSplit</Product>
     <Description>Local splitscreen for BeamNG.drive</Description>
     <Company>BeamSplit</Company>
@@ -45,10 +45,17 @@
     <EmbeddedResource Include="THIRD-PARTY-NOTICES.txt" LogicalName="BeamSplit.Resources.THIRD-PARTY-NOTICES.txt" />
     <EmbeddedResource Include="Resources\BeamSplitAudioVE.lua" LogicalName="BeamSplit.Resources.BeamSplitAudioVE.lua" />
     <EmbeddedResource Include="Resources\BeamSplitAutoJoin.lua" LogicalName="BeamSplit.Resources.BeamSplitAutoJoin.lua" />
-    <EmbeddedResource Include="Resources\SingleInstance\modScript.lua" LogicalName="BeamSplit.Resources.SingleInstance.modScript.lua" />
-    <EmbeddedResource Include="Resources\SingleInstance\info.json" LogicalName="BeamSplit.Resources.SingleInstance.info.json" />
-    <EmbeddedResource Include="Resources\SingleInstance\splitScreen.lua" LogicalName="BeamSplit.Resources.SingleInstance.splitScreen.lua" />
-    <EmbeddedResource Include="Resources\SingleInstance\actions.json" LogicalName="BeamSplit.Resources.SingleInstance.actions.json" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\scripts\modScript.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.modScript.lua" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\info.json" LogicalName="BeamSplit.Resources.SingleInstance.V2.info.json" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\render\splitScreen.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.splitScreen.lua" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\render\splitScreenLayout.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.splitScreenLayout.lua" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\render\splitScreenHud.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.splitScreenHud.lua" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\render\splitScreenPicker.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.splitScreenPicker.lua" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\render\splitScreenMenu.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.splitScreenMenu.lua" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\input\beamsplit.json" LogicalName="BeamSplit.Resources.SingleInstance.V2.beamsplit.json" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\input\xinput_beamsplit.json" LogicalName="BeamSplit.Resources.SingleInstance.V2.xinput_beamsplit.json" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\beamsplit\launcher.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.launcher.lua" />
+    <EmbeddedResource Include="Resources\SingleInstance\V2\beamsplit\selftest.lua" LogicalName="BeamSplit.Resources.SingleInstance.V2.selftest.lua" />
   </ItemGroup>
 
   <ItemGroup>

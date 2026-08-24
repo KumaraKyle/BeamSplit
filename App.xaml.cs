@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using BeamSplit.Core;
+using BeamSplit.Views;
 using System.Windows;
 
 namespace BeamSplit;
@@ -155,6 +156,17 @@ public partial class App : Application
             main.Show();
             await splash.FadeOutAsync();
             ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+            var state = AppState.Current;
+            if (SupportPrompt.ShouldShow(state.Config, DateTime.UtcNow))
+            {
+                var support = new SupportPromptDialog { Owner = main };
+                support.ShowDialog();
+                SupportPrompt.Record(state.Config, support.Choice, DateTime.UtcNow);
+                state.Save();
+                if (support.Choice == SupportPromptChoice.Support)
+                    SupportPrompt.OpenPage(state.Progress());
+            }
         }
         catch (Exception ex)
         {

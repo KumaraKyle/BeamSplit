@@ -4,6 +4,23 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel>
 
+      <Border Style="{StaticResource CardStyle}" BorderBrush="{StaticResource Accent}" BorderThickness="1">
+        <StackPanel>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Support BeamSplit" Margin="0,0,0,6"/>
+              <TextBlock Style="{StaticResource Sub}" MaxWidth="650" HorizontalAlignment="Left"
+                         Text="BeamSplit is free and every feature stays available. If it has been useful, an optional tip helps fund testing, controllers and continued development."/>
+            </StackPanel>
+            <Button x:Name="BtnSupportBeamSplit" Grid.Column="1" Style="{StaticResource Primary}"
+                    Content="Support on Ko-fi ↗" Padding="18,10" Margin="18,0,0,0" VerticalAlignment="Center"/>
+          </Grid>
+          <TextBlock Foreground="{StaticResource Muted}" FontSize="11" Margin="0,10,0,0"
+                     Text="Opens ko-fi.com/kumarakyle in your browser. BeamSplit never handles payment details or tracks whether you contribute."/>
+        </StackPanel>
+      </Border>
+
       <Border Style="{StaticResource CardStyle}">
         <StackPanel>
           <TextBlock Style="{StaticResource H1}" Text="Settings"/>
@@ -117,7 +134,9 @@
 
       <Border Style="{StaticResource CardStyle}">
         <StackPanel>
-          <TextBlock Style="{StaticResource H2}" Text="Graphics applied to every instance" Margin="0,0,0,12"/>
+          <TextBlock Style="{StaticResource H2}" Text="Multi-instance graphics" Margin="0,0,0,5"/>
+          <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,12"
+                     Text="These optimizations apply only to multi-instance sessions. Single-instance inherits the visual quality from your normal BeamNG profile."/>
           <CheckBox x:Name="ChkLowMemoryGfx" Content="Low-memory mode · quarter textures and minimum world detail"/>
           <TextBlock Style="{StaticResource Sub}" Margin="24,0,0,8"
                      Text="Recommended for Italy/Utah with multiple players. Disables reflections, mirrors, grass, clouds and post-processing."/>

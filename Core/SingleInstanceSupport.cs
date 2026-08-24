@@ -25,9 +25,8 @@ public static class SingleInstanceSupport
         var camera = Path.Combine(root, "lua", "ge", "extensions", "core", "camera.lua");
         var gameEngine = Path.Combine(root, "lua", "ge", "extensions", "core", "cameraModes", "gameengine.lua");
         var bindings = Path.Combine(root, "lua", "ge", "extensions", "core", "input", "bindings.lua");
-        var hud = Path.Combine(root, "ui", "ui-vue", "src", "modules", "splitscreen", "SplitScreenHud.vue");
 
-        foreach (var file in new[] { camera, gameEngine, bindings, hud })
+        foreach (var file in new[] { camera, gameEngine, bindings })
             if (!File.Exists(file))
                 return new(false, $"This BeamNG build is missing {Path.GetFileName(file)}.");
 
@@ -40,7 +39,7 @@ public static class SingleInstanceSupport
         }
         catch (Exception ex) { return new(false, $"Could not inspect BeamNG capabilities: {ex.Message}"); }
 
-        return new(true, "Compatible camera contexts, render views, multiseat routing, and split-screen HUD found.");
+        return new(true, "Compatible camera contexts, render views, multiseat routing, and ImGui support found.");
     }
 
     public static SingleInstanceLayout ResolveLayout(AppConfig cfg, IReadOnlyList<MonitorInfo> monitors)
@@ -104,6 +103,7 @@ public static class SingleInstanceSupport
             engine = "single-instance-experimental",
             windowBounds = new[] { layout.Window.X, layout.Window.Y, layout.Window.W, layout.Window.H },
             hud = true,
+            audio = "native",
             camera = "orbit",
             players
         }, new JsonSerializerOptions { WriteIndented = true });
@@ -116,10 +116,17 @@ public static class SingleInstanceSupport
         {
             using (var archive = ZipFile.Open(temp, ZipArchiveMode.Create))
             {
-                AddResource(archive, "BeamSplit.Resources.SingleInstance.modScript.lua", "scripts/BeamSplit/modScript.lua");
-                AddResource(archive, "BeamSplit.Resources.SingleInstance.info.json", "mod_info/BeamSplit/info.json");
-                AddResource(archive, "BeamSplit.Resources.SingleInstance.splitScreen.lua", "lua/ge/extensions/render/splitScreen.lua");
-                AddResource(archive, "BeamSplit.Resources.SingleInstance.actions.json", "lua/ge/extensions/core/input/actions/zz_beamsplitSplitScreen.json");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.modScript.lua", "scripts/beamsplit/modScript.lua");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.info.json", "mod_info/beamsplit/info.json");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.splitScreen.lua", "lua/ge/extensions/render/splitScreen.lua");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.splitScreenLayout.lua", "lua/ge/extensions/render/splitScreenLayout.lua");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.splitScreenHud.lua", "lua/ge/extensions/render/splitScreenHud.lua");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.splitScreenPicker.lua", "lua/ge/extensions/render/splitScreenPicker.lua");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.splitScreenMenu.lua", "lua/ge/extensions/render/splitScreenMenu.lua");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.beamsplit.json", "lua/ge/extensions/core/input/actions/beamsplit.json");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.xinput_beamsplit.json", "settings/inputmaps/xinput_beamsplit.json");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.launcher.lua", "lua/ge/extensions/beamsplit/launcher.lua");
+                AddResource(archive, "BeamSplit.Resources.SingleInstance.V2.selftest.lua", "lua/ge/extensions/beamsplit/selftest.lua");
             }
             File.Move(temp, destination, true);
         }
@@ -137,9 +144,16 @@ public static class SingleInstanceSupport
     internal static bool ResourcesAvailable()
     {
         var names = Assembly.GetExecutingAssembly().GetManifestResourceNames().ToHashSet(StringComparer.Ordinal);
-        return names.Contains("BeamSplit.Resources.SingleInstance.modScript.lua") &&
-               names.Contains("BeamSplit.Resources.SingleInstance.info.json") &&
-               names.Contains("BeamSplit.Resources.SingleInstance.splitScreen.lua") &&
-               names.Contains("BeamSplit.Resources.SingleInstance.actions.json");
+        return names.Contains("BeamSplit.Resources.SingleInstance.V2.modScript.lua") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.info.json") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.splitScreen.lua") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.splitScreenLayout.lua") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.splitScreenHud.lua") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.splitScreenPicker.lua") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.splitScreenMenu.lua") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.beamsplit.json") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.xinput_beamsplit.json") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.launcher.lua") &&
+               names.Contains("BeamSplit.Resources.SingleInstance.V2.selftest.lua");
     }
 }

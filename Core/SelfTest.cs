@@ -2,6 +2,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace BeamSplit.Core;
 
@@ -52,6 +53,49 @@ public static class SelfTest
                                 !Instances.SamePath(@"C:\Games\BeamNG-old", @"C:\Games\BeamNG");
                 W($"  clone roots   : {(rootMatch ? "PASS" : "FAIL")} (moved-install detection)");
                 if (!rootMatch) throw new InvalidOperationException("instance source-root regression");
+
+                var normalGraphicsFile = Path.Combine(safetyProbe, "normal-settings.json");
+                var singleGraphicsFile = Path.Combine(safetyProbe, "single-settings.json");
+                await File.WriteAllTextAsync(normalGraphicsFile, """
+                    {"GraphicMeshQuality":"Ultra","GraphicAntialias":4,
+                     "GraphicDisplayModes":"Fullscreen","PostFXSSAOGeneralEnabled":true,
+                     "vehicleShadowEnabled":true}
+                    """);
+                await File.WriteAllTextAsync(singleGraphicsFile, """
+                    {"GraphicMeshQuality":"Lowest","GraphicCloudsQuality":"Disabled",
+                     "GraphicDisplayModes":"Window","PostFXSSAOGeneralEnabled":false,
+                     "vehicleShadowEnabled":false,"uiAcceleratedRender":false,
+                     "unfocusedInput":true,"AudioMasterVol":0.75}
+                    """);
+                var graphicsCopied = GameSettings.CopyGraphicsSettings(normalGraphicsFile, singleGraphicsFile);
+                var inherited = JsonNode.Parse(await File.ReadAllTextAsync(singleGraphicsFile))!.AsObject();
+                var graphicsPass = graphicsCopied &&
+                                   inherited["GraphicMeshQuality"]?.GetValue<string>() == "Ultra" &&
+                                   inherited["GraphicAntialias"]?.GetValue<int>() == 4 &&
+                                   inherited["GraphicDisplayModes"]?.GetValue<string>() == "Window" &&
+                                   inherited["PostFXSSAOGeneralEnabled"]?.GetValue<bool>() == true &&
+                                   inherited["vehicleShadowEnabled"]?.GetValue<bool>() == true &&
+                                   inherited["unfocusedInput"]?.GetValue<bool>() == true &&
+                                   inherited["AudioMasterVol"]?.GetValue<double>() == 0.75 &&
+                                   !inherited.ContainsKey("GraphicCloudsQuality") &&
+                                   !inherited.ContainsKey("uiAcceleratedRender");
+                W($"  visual inherit: {(graphicsPass ? "PASS" : "FAIL")} (quality copied; window/input/audio preserved)");
+                if (!graphicsPass) throw new InvalidOperationException("single-instance graphics inheritance regression");
+
+                var now = new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc);
+                var supportFresh = new AppConfig { SuccessfulSessionLaunches = 2 };
+                var supportReady = new AppConfig { SuccessfulSessionLaunches = 3 };
+                var supportLater = new AppConfig { SuccessfulSessionLaunches = 3 };
+                SupportPrompt.Record(supportLater, SupportPromptChoice.Later, now);
+                var supportNever = new AppConfig { SuccessfulSessionLaunches = 3 };
+                SupportPrompt.Record(supportNever, SupportPromptChoice.Never, now);
+                var supportPass = !SupportPrompt.ShouldShow(supportFresh, now) &&
+                                  SupportPrompt.ShouldShow(supportReady, now) &&
+                                  !SupportPrompt.ShouldShow(supportLater, now.AddDays(29)) &&
+                                  SupportPrompt.ShouldShow(supportLater, now.AddDays(31)) &&
+                                  !SupportPrompt.ShouldShow(supportNever, now.AddYears(1));
+                W($"  support prompt: {(supportPass ? "PASS" : "FAIL")} (3 sessions / snooze / never)");
+                if (!supportPass) throw new InvalidOperationException("support prompt regression");
             }
             finally { try { Directory.Delete(safetyProbe, true); } catch { } }
             W("");
@@ -303,29 +347,62 @@ public static class SelfTest
                 SingleInstanceSupport.BuildModZip(modZip);
                 using var archive = ZipFile.OpenRead(modZip);
                 var entries = archive.Entries.Select(e => e.FullName).ToHashSet(StringComparer.Ordinal);
-                var bootstrapEntry = archive.GetEntry("scripts/BeamSplit/modScript.lua");
+                var bootstrapEntry = archive.GetEntry("scripts/beamsplit/modScript.lua");
                 var backendEntry = archive.GetEntry("lua/ge/extensions/render/splitScreen.lua");
-                var actionsEntry = archive.GetEntry("lua/ge/extensions/core/input/actions/zz_beamsplitSplitScreen.json");
+                var pickerEntry = archive.GetEntry("lua/ge/extensions/render/splitScreenPicker.lua");
+                var actionsEntry = archive.GetEntry("lua/ge/extensions/core/input/actions/beamsplit.json");
+                var inputMapEntry = archive.GetEntry("settings/inputmaps/xinput_beamsplit.json");
+                var launcherEntry = archive.GetEntry("lua/ge/extensions/beamsplit/launcher.lua");
                 string bootstrap;
                 using (var reader = new StreamReader(bootstrapEntry!.Open()))
                     bootstrap = reader.ReadToEnd();
                 string backend;
                 using (var reader = new StreamReader(backendEntry!.Open()))
                     backend = reader.ReadToEnd();
+                string picker;
+                using (var reader = new StreamReader(pickerEntry!.Open()))
+                    picker = reader.ReadToEnd();
                 string actions;
                 using (var reader = new StreamReader(actionsEntry!.Open()))
                     actions = reader.ReadToEnd();
+                string inputMap;
+                using (var reader = new StreamReader(inputMapEntry!.Open()))
+                    inputMap = reader.ReadToEnd();
+                string launcherBridge;
+                using (var reader = new StreamReader(launcherEntry!.Open()))
+                    launcherBridge = reader.ReadToEnd();
                 var modPass = SingleInstanceSupport.ResourcesAvailable() &&
-                              entries.Contains("scripts/BeamSplit/modScript.lua") &&
+                              entries.Count == 11 &&
+                              entries.Contains("scripts/beamsplit/modScript.lua") &&
                               entries.Contains("lua/ge/extensions/render/splitScreen.lua") &&
-                              entries.Contains("lua/ge/extensions/core/input/actions/zz_beamsplitSplitScreen.json") &&
-                              bootstrap.Contains("loadBackend()", StringComparison.Ordinal) &&
+                              entries.Contains("lua/ge/extensions/render/splitScreenHud.lua") &&
+                              entries.Contains("lua/ge/extensions/render/splitScreenMenu.lua") &&
+                              entries.Contains("lua/ge/extensions/render/splitScreenPicker.lua") &&
+                              entries.Contains("lua/ge/extensions/core/input/actions/beamsplit.json") &&
+                              entries.Contains("settings/inputmaps/xinput_beamsplit.json") &&
+                              entries.Contains("lua/ge/extensions/beamsplit/launcher.lua") &&
+                              bootstrap.Contains("beamsplit_launcher", StringComparison.Ordinal) &&
+                              bootstrap.Contains("menuInput", StringComparison.Ordinal) &&
+                              bootstrap.Contains("UINavigation", StringComparison.Ordinal) &&
                               backend.Contains("namedTexTargetColor", StringComparison.Ordinal) &&
-                              backend.Contains("im.Image", StringComparison.Ordinal) &&
-                              backend.Contains("spawnNewVehicle", StringComparison.Ordinal) &&
-                              backend.Contains("pickerConfirm", StringComparison.Ordinal) &&
-                              backend.Contains("patchRuntimeActions", StringComparison.Ordinal) &&
-                              actions.Contains("switch_next_vehicle_multiseat", StringComparison.Ordinal);
+                              backend.Contains("queueLifecycleOperation", StringComparison.Ordinal) &&
+                              backend.Contains("SetNextWindowViewport", StringComparison.Ordinal) &&
+                              backend.Contains("deviceAssignments", StringComparison.Ordinal) &&
+                              backend.Contains("configuredRects", StringComparison.Ordinal) &&
+                              backend.Contains("enforceExclusiveSeats", StringComparison.Ordinal) &&
+                              backend.Contains("resetPlayerVehicle", StringComparison.Ordinal) &&
+                              picker.Contains("core_vehicles.getModel", StringComparison.Ordinal) &&
+                              picker.Contains("info.preview", StringComparison.Ordinal) &&
+                              picker.Contains("stage == 'presets'", StringComparison.Ordinal) &&
+                              actions.Contains("beamsplit_picker_confirm", StringComparison.Ordinal) &&
+                              actions.Contains("beamsplit.menuInput(0)", StringComparison.Ordinal) &&
+                              actions.Contains("\"actionMap\": \"Multiseat\"", StringComparison.Ordinal) &&
+                              inputMap.Contains("btn_start", StringComparison.Ordinal) &&
+                              inputMap.Contains("modifier1 lpov", StringComparison.Ordinal) &&
+                              launcherBridge.Contains("session.json", StringComparison.Ordinal) &&
+                              launcherBridge.Contains("deviceAssignments", StringComparison.Ordinal) &&
+                              launcherBridge.Contains("START_DELAY", StringComparison.Ordinal) &&
+                              backend.Contains("is unavailable; skipping player", StringComparison.Ordinal);
                 W($"  embedded single-instance mod: {(modPass ? "PASS" : "FAIL")}");
                 if (!modPass) throw new InvalidOperationException("single-instance mod packaging regression");
             }

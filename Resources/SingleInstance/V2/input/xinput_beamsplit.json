@@ -1,0 +1,13 @@
+{
+  "bindings": [
+    {"control":"btn_start", "action":"beamsplit_menu"},
+    {"control":"btn_back",  "action":"beamsplit_picker"},
+    {"control":"modifier1 lpov", "action":"beamsplit_toggle"},
+    {"control":"lpov",      "action":"beamsplit_nav_left"},
+    {"control":"rpov",      "action":"beamsplit_nav_right"},
+    {"control":"upov",      "action":"beamsplit_nav_up"},
+    {"control":"dpov",      "action":"beamsplit_nav_down"},
+    {"control":"btn_a",     "action":"beamsplit_picker_confirm"},
+    {"control":"btn_b",     "action":"beamsplit_nav_back"}
+  ]
+}

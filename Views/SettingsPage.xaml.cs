@@ -40,6 +40,7 @@ public partial class SettingsPage : UserControl
         TxtInstances.TextChanged += (_, _) => UpdateHints();
         BtnRefreshAudio.Click += (_, _) => LoadAudioDevices();
         BtnPreviewCinematic.Click += async (_, _) => await _previewCinematic();
+        BtnSupportBeamSplit.Click += (_, _) => SupportPrompt.OpenPage(_state.Progress());
         BtnCheckUpdate.Click += async (_, _) => await CheckForUpdateAsync();
         BtnInstallUpdate.Click += async (_, _) => await InstallUpdateAsync();
         BtnOpenRelease.Click += (_, _) =>

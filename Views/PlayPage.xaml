@@ -3,6 +3,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel>
+      <Border x:Name="NativeSplitNotice" Background="#15251F" BorderBrush="{StaticResource Good}"
+              BorderThickness="1" CornerRadius="8" Margin="0,0,0,12" Padding="16,10">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="NATIVE-ISH SPLIT-SCREEN NOW WORKS" Foreground="{StaticResource Good}"
+                       FontSize="10" FontWeight="Bold"/>
+            <TextBlock Text="Two players, one BeamNG process, independent views and per-player vehicle pickers."
+                       Foreground="#C4CDC8" FontSize="11.5" TextWrapping="Wrap" Margin="0,3,16,0"/>
+          </StackPanel>
+          <Button x:Name="BtnTryNativeSplit" Grid.Column="1" Style="{StaticResource Small}"
+                  Content="Try it" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <Button x:Name="BtnDismissNativeSplit" Grid.Column="2" Style="{StaticResource Small}"
+                  Content="×" ToolTip="Dismiss" FontSize="15" Width="32" Padding="0"
+                  VerticalAlignment="Center"/>
+        </Grid>
+      </Border>
+
       <Border Style="{StaticResource CardStyle}" BorderBrush="{StaticResource Accent}" BorderThickness="1" Padding="0" ClipToBounds="True">
         <Grid>
           <Grid.Background>
@@ -137,7 +157,8 @@
               <CheckBox x:Name="ChkIsolate" Content="One controller per instance"/>
               <CheckBox x:Name="ChkProtoInput" Content="Focus-independent Proto Input routing"/>
               <CheckBox x:Name="ChkPlayerMods" Content="Mount my shared mod library"/>
-              <CheckBox x:Name="ChkLowMemory" Content="Low-memory graphics · Italy/Utah"/>
+              <CheckBox x:Name="ChkLowMemory" Content="Low-memory graphics · multi-instance Italy/Utah"
+                        ToolTip="Multi-instance only. Single-instance inherits your normal BeamNG visual quality."/>
             </StackPanel>
             <StackPanel Grid.Column="2">
               <CheckBox x:Name="ChkCinematic" Content="Play launch cinematic"/>

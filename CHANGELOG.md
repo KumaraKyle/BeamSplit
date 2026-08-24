@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.9.4
+
+- Expanded each single-instance vehicle card into a second controller-driven preset grid,
+  showing every factory and mod configuration with BeamNG's own preset thumbnails.
+- Restored D-pad-left as BeamNG's normal per-player rewind/recovery whenever no BeamSplit
+  picker or menu is consuming it.
+- Hardened vehicle replacement seating so the selected preset remains owned by the player
+  who chose it and no second player can be left controlling the same vehicle.
+- Restored the optional Ko-fi support feature and placed its always-available card first
+  at the top of Settings. The reminder appears only after three successful sessions, can
+  be snoozed for 30 days or dismissed permanently, and never gates functionality.
+- Ko-fi opens in the default browser; BeamSplit handles no payment information and does
+  not attempt to determine whether a contribution was completed.
+- Fixed the launcher-only single-instance profile inheriting stale low-memory and custom
+  multi-instance graphics. It now refreshes graphics/post-FX quality from the normal BeamNG
+  profile before every launch while preserving its required window, input and audio settings.
+- Replaced only the experimental single-instance backend with the working BeamSplit v2
+  mod: stable RenderViews, controller-first menus, per-player vehicle pickers, custom HUD,
+  safe vehicle replacement and suppression of the extra main-camera window.
+- Preserved launcher screen rectangles and explicit controller/keyboard assignments through
+  a small launcher bridge that starts v2 automatically after Freeroam loads.
+- Kept the stable multi-instance Solo/BeamMP engine, Proto Input isolation, local server,
+  profiles and tiling pipeline unchanged and still selected by default.
+- Replaced the obsolete failure warning with the remaining honest limitations: offline-only,
+  internal BeamNG render APIs and one shared audio listener.
+- Fixed a native load-in crash by waiting for BeamNG's vehicle/input initialization to settle
+  before assigning controllers, and by never passing a disconnected controller to BeamNG's
+  unsafe native assignment function.
+- Changed the launch cinematic into a true countdown: BeamNG and the local server now start
+  only after the film finishes or the user skips it, with a failsafe for a stalled renderer.
+- Made End Session return completely to stock BeamNG menus, map and UI. Start and Back regain
+  their normal BeamNG behavior; only RB + D-pad left restarts the split-screen session.
+- Routed Start through BeamNG's exact stock menu press/release path after End Session, fixing
+  the BeamSplit controller binding swallowing the normal pause menu even while inactive.
+- Added a small dismissible Play-page announcement for the working native-ish split-screen
+  mode, with a one-click shortcut that selects its two-player single-instance engine.
+
 ## 1.9.3
 
 - Made Multi-instance the default on every normal app startup. Single-instance now

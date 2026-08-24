@@ -33,6 +33,80 @@ public static class GameSettings
     private static string LocalFile(AppConfig cfg, int i) =>
         Path.Combine(Instances.CurrentProfile(cfg, i), "settings", "settings.json");
 
+    private static string? NormalBeamNgSettingsFile()
+    {
+        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "BeamNG", "BeamNG.drive");
+        var current = Path.Combine(root, "current", "settings", "settings.json");
+        if (File.Exists(current)) return current;
+        if (!Directory.Exists(root)) return null;
+        try
+        {
+            return Directory.EnumerateDirectories(root)
+                .Select(dir => Path.Combine(dir, "settings", "settings.json"))
+                .Where(File.Exists)
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+        }
+        catch { return null; }
+    }
+
+    private static bool IsGraphicsSetting(string key)
+    {
+        if (key.StartsWith("PostFX", StringComparison.OrdinalIgnoreCase)) return true;
+        if (key.StartsWith("Graphic", StringComparison.OrdinalIgnoreCase))
+        {
+            // The launcher owns window placement and frame pacing. Inherit visual quality,
+            // never the normal profile's fullscreen monitor/resolution settings.
+            return !key.StartsWith("GraphicDisplay", StringComparison.OrdinalIgnoreCase) &&
+                   !key.StartsWith("GraphicWindow", StringComparison.OrdinalIgnoreCase) &&
+                   !key.StartsWith("GraphicFullscreen", StringComparison.OrdinalIgnoreCase) &&
+                   !key.StartsWith("GraphicBorderless", StringComparison.OrdinalIgnoreCase) &&
+                   !key.StartsWith("GraphicMonitor", StringComparison.OrdinalIgnoreCase) &&
+                   !key.StartsWith("GraphicVSync", StringComparison.OrdinalIgnoreCase);
+        }
+        return key.Equals("vehicleShadowEnabled", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("lastSplitCastersEnabled", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("SkipGenerateLicencePlate", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("uiAcceleratedRender", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Replaces only visual-quality keys in a BeamSplit profile. Removing the destination's
+    /// graphics keys first is important: merely unchecking low-memory mode used to leave its
+    /// old disabled shadows, grass and post-FX values behind forever.
+    /// </summary>
+    internal static bool CopyGraphicsSettings(string sourcePath, string destinationPath)
+    {
+        try
+        {
+            var source = JsonNode.Parse(File.ReadAllText(sourcePath))?.AsObject();
+            if (source is null) return false;
+            JsonObject destination;
+            if (File.Exists(destinationPath))
+            {
+                try { destination = JsonNode.Parse(File.ReadAllText(destinationPath))?.AsObject() ?? []; }
+                catch { destination = []; }
+            }
+            else destination = [];
+
+            foreach (var key in destination.Select(pair => pair.Key).Where(IsGraphicsSetting).ToList())
+                destination.Remove(key);
+            foreach (var (key, value) in source.Where(pair => IsGraphicsSetting(pair.Key)))
+                destination[key] = value?.DeepClone();
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            File.WriteAllText(destinationPath,
+                destination.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                new UTF8Encoding(false));
+
+            var saved = JsonNode.Parse(File.ReadAllText(destinationPath))?.AsObject();
+            return saved is not null && source.Where(pair => IsGraphicsSetting(pair.Key)).All(pair =>
+                saved.TryGetPropertyValue(pair.Key, out var actual) && JsonNode.DeepEquals(actual, pair.Value));
+        }
+        catch { return false; }
+    }
+
     public static void ApplyFocusFixes(AppConfig cfg, int i, IProgress<string>? log = null)
     {
         var cloudOk = Patch(CloudFile(cfg, i), new Dictionary<string, JsonNode?>
@@ -94,6 +168,16 @@ public static class GameSettings
 
     public static void ApplyGraphics(AppConfig cfg, int i, IProgress<string>? log = null)
     {
+        if (i == Instances.SingleInstanceIndex)
+        {
+            var source = NormalBeamNgSettingsFile();
+            if (source is not null && CopyGraphicsSettings(source, LocalFile(cfg, i)))
+                log?.Report("  Single: inherited visual quality from the normal BeamNG profile (window/input/audio kept separate)");
+            else
+                log?.Report("  Single: WARNING - normal BeamNG graphics could not be read; existing visual settings were left unchanged");
+            return;
+        }
+
         if (cfg.LowMemoryGraphics)
         {
             // BeamNG 0.39's own Lowest preset. Texture=Lowest caps textures at quarter

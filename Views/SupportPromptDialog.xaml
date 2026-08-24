@@ -1,0 +1,39 @@
+<Window x:Class="BeamSplit.Views.SupportPromptDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Support BeamSplit" Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        ShowInTaskbar="False" Background="{StaticResource Bg}" Foreground="{StaticResource Fg}">
+  <Border Background="{StaticResource Card}" BorderBrush="{StaticResource Accent}"
+          BorderThickness="1" CornerRadius="12" Padding="24">
+    <StackPanel>
+      <Grid Margin="0,0,0,16">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="52"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Border Width="42" Height="42" CornerRadius="21" Background="#30251E" VerticalAlignment="Top">
+          <TextBlock Text="♥" Foreground="{StaticResource Accent}" FontSize="22" FontWeight="Bold"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="Enjoying BeamSplit?" FontSize="20" FontWeight="SemiBold"/>
+          <TextBlock Text="A completely optional way to support development."
+                     Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+        </StackPanel>
+      </Grid>
+
+      <TextBlock TextWrapping="Wrap" Margin="0,0,0,10"
+                 Text="BeamSplit is free and every feature stays available. If it has made local BeamNG sessions easier, a small tip helps with testing hardware and continued development."/>
+      <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="11.5" Margin="0,0,0,18"
+                 Text="Support opens Ko-fi in your browser. BeamSplit never handles payment details or tracks whether you contribute."/>
+
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Button x:Name="BtnNever" Content="Never show again" Style="{StaticResource Small}"/>
+        <Button x:Name="BtnLater" Grid.Column="1" Content="Maybe later" Style="{StaticResource Small}"
+                HorizontalAlignment="Right" Margin="10,0,0,0"/>
+        <Button x:Name="BtnSupport" Grid.Column="2" Content="Support on Ko-fi ↗"
+                Style="{StaticResource Primary}" Padding="18,10" Margin="10,0,0,0"/>
+      </Grid>
+    </StackPanel>
+  </Border>
+</Window>
+

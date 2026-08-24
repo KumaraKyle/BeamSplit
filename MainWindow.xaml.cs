@@ -334,18 +334,19 @@ public partial class MainWindow : Window
         if (cfg.SessionEngine == SessionEngine.SingleInstanceExperimental)
         {
             var answer = MessageBox.Show(this,
-                "Single-instance mode honestly sucks right now and probably won't work correctly on your setup.\n\n" +
-                "It may crash, show a black screen, break the menus or map, or give both players the wrong view. " +
-                "I'm actively working on it.\n\n" +
-                "Use Multi-instance · stable unless you're deliberately testing the experimental engine.\n\n" +
+                "Single-instance mode now uses the integrated BeamSplit v2 mod: one BeamNG process, " +
+                "two independent views, per-player vehicle pickers and the split-screen HUD.\n\n" +
+                "It is offline-only and BeamNG still provides only one shared audio listener. " +
+                "The camera/render APIs are internal and may need updates when BeamNG changes.\n\n" +
+                "Multi-instance · stable remains available and unchanged.\n\n" +
                 "Launch single-instance anyway?",
-                "Single instance is VERY experimental",
+                "Launch single-instance BeamSplit v2?",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning,
                 MessageBoxResult.No);
             if (answer != MessageBoxResult.Yes)
             {
-                SetStatus("Experimental launch cancelled. Choose Multi-instance · stable to play.");
+                SetStatus("Single-instance launch cancelled. Multi-instance · stable is still ready.");
                 _state.Log("Single-instance launch cancelled at the experimental warning.");
                 return;
             }
@@ -381,20 +382,21 @@ public partial class MainWindow : Window
         _launching = true;
         try
         {
-            // Start the actual parallel launch first. The cinematic hides its slowest
-            // early work rather than delaying it; Session telemetry is already alive
-            // underneath and is revealed when the split-screen grid resolves.
-            // Launcher has unavoidable synchronous sections: instance repair, DLL/mod
-            // deployment, process inspection and window calls. Starting an async method
-            // on the dispatcher still runs those sections on the dispatcher and freezes
-            // the film whenever Windows blocks one of them. Keep the entire pipeline on
-            // a worker; LaunchTelemetry is explicitly thread-safe.
-            var launchTask = Task.Run(() => _launcher.LaunchAsync(_state.WorkerProgress()));
             if (cfg.LaunchCinematic)
             {
-                await PlayCinematicAsync(players, launchTask);
+                // The film is a countdown, not a loading mask: no server or BeamNG process may
+                // start until it has fully resolved. Skip/ESC completes the same task and begins
+                // launch immediately, so the player remains in control of the delay.
+                await PlayCinematicAsync(players);
             }
+
+            // Launcher has unavoidable synchronous sections: instance repair, DLL/mod deployment,
+            // process inspection and window calls. Keep all of them off the dispatcher so the
+            // dashboard remains responsive after the cinematic hands off.
+            var launchTask = Task.Run(() => _launcher.LaunchAsync(_state.WorkerProgress()));
             await launchTask;
+            cfg.SuccessfulSessionLaunches++;
+            _state.Save();
             _logs.Rebuild(cfg);
             if (cfg.SessionEngine == SessionEngine.MultiInstance && cfg.Watchdog && !cfg.UseProtoInput) _focus.Start();
             SetStatus(cfg.SessionEngine == SessionEngine.SingleInstanceExperimental
@@ -503,7 +505,15 @@ public partial class MainWindow : Window
             WindowState = System.Windows.WindowState.Maximized;
             Activate();
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-            await LaunchOverlay.PlayAsync(players, launchTask);
+            var filmTask = LaunchOverlay.PlayAsync(players, launchTask);
+            var completed = await Task.WhenAny(filmTask, Task.Delay(TimeSpan.FromSeconds(20)));
+            if (completed == filmTask)
+                await filmTask;
+            else
+            {
+                _state.Log("Launch cinematic exceeded 20 seconds; continuing with launch failsafe.");
+                LaunchOverlay.Abort();
+            }
         }
         finally
         {

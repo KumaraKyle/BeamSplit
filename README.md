@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Public beta · v1.8.1**
+**Public beta · v1.9.4**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.
@@ -52,15 +52,25 @@ so it's slow once. After that it's quick.
 
 Choose **Single instance · experimental** on Play, configure exactly two inputs and
 screen regions, then launch. BeamSplit opens one normal BeamNG window; choose a Freeroam
-map inside BeamNG and the second vehicle, split views and per-player HUD activate when
-the map finishes loading. Two-monitor layouts use one borderless window spanning the
-chosen displays.
+map inside BeamNG and the integrated BeamSplit v2 mod activates when the map finishes
+loading. It creates the second default car, preserves the launcher's exact screen regions
+and controller assignments, and supplies the split renderer, per-player HUD, controller
+menu and independent vehicle picker. Selecting a vehicle opens all of its factory and mod
+presets with thumbnails; D-pad left recovers only that player's car outside the picker. Vehicle
+ownership is kept exclusive after a swap. Two-monitor layouts use one borderless window spanning
+the chosen displays. After End Session, **RB + D-pad left** is the only shortcut that restarts
+the split; Start and Back return to BeamNG's normal menus.
+
+Before each single-instance launch, BeamSplit refreshes only the visual-quality settings from
+your normal BeamNG profile. Window mode, input, audio and frame-cap settings remain isolated in
+the launcher profile; multi-instance low-memory optimizations are never applied to this mode.
 
 Multi-instance is always selected again when BeamSplit starts. Launching the experimental
 engine shows a final warning and requires explicit confirmation; cancelling returns to
 BeamSplit without starting or changing the session.
 
-This mode is offline-only and deliberately version-gated. It uses camera-context and
+This mode is offline-only and deliberately version-gated. BeamNG exposes one audio listener,
+so sound remains one shared/native mix rather than one stereo mix per player. It uses camera-context and
 render-view APIs shipped in newer BeamNG builds but not documented as a stable public
 split-screen interface. If BeamSplit cannot find the required APIs, it leaves the game
 untouched and asks you to use the stable multi-instance engine. The experimental engine
@@ -72,6 +82,12 @@ never uses Proto Input, XInput proxy DLLs, BeamMP launchers or the local BeamMP 
 - Shared world also needs BeamMP installed and a free AuthKey from
   <https://keymaster.beammp.com> — required even for a private LAN server
 - ~500 MB disk per player
+
+BeamSplit is free and does not gate features behind payment. The first card in Settings
+contains an optional [Ko-fi support link](https://ko-fi.com/kumarakyle). After three
+successful sessions BeamSplit may show one reminder; **Maybe later** snoozes it for 30 days
+and **Never show again** dismisses it permanently. Payments stay entirely in the browser—
+BeamSplit receives no payment details and does not track whether somebody contributes.
 
 ---
 
