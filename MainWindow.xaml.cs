@@ -117,7 +117,7 @@ public partial class MainWindow : Window
             var initial = _state.Config.OnboardingComplete ? NavPlay : NavSetup;
             initial.IsChecked = true;
             Navigate(initial);
-            await CheckForUpdatesQuietlyAsync();
+            await CheckForUpdatesOnLaunchAsync();
         };
         Closed += (_, _) => { _focus.Stop(); _session.Stop(); _logs.Dispose(); _state.Save(); };
     }
@@ -146,26 +146,44 @@ public partial class MainWindow : Window
         _state.Save();
     }
 
-    private async Task CheckForUpdatesQuietlyAsync()
+    private async Task CheckForUpdatesOnLaunchAsync()
     {
         var cfg = _state.Config;
-        if (!cfg.AutoUpdateCheck || cfg.LastUpdateCheckUtc is DateTime last &&
-            DateTime.UtcNow - last.ToUniversalTime() < TimeSpan.FromHours(24)) return;
+        if (!cfg.AutoUpdateCheck) return;
 
         try
         {
             var update = await AppUpdater.CheckAsync();
             cfg.LastUpdateCheckUtc = DateTime.UtcNow;
             _state.Save();
-            if (update.Available)
+            if (!update.Available || update.Latest == null) return;
+
+            SetStatus($"BeamSplit {update.Latest} is available.");
+            _state.Log($"Update available: {update.Latest} (verified GitHub release asset).");
+            var choice = MessageBox.Show(this,
+                $"BeamSplit {update.Latest} is available.\n\n" +
+                "Download the verified update and restart BeamSplit now?",
+                "BeamSplit update available",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information,
+                MessageBoxResult.No);
+            if (choice != MessageBoxResult.Yes)
             {
-                SetStatus($"BeamSplit {update.Latest} is available - open Settings to install it.");
-                _state.Log($"Update available: {update.Latest} (verified GitHub release asset).");
+                SetStatus($"BeamSplit {update.Latest} is available - update deferred until next launch.");
+                return;
             }
+
+            var progress = new Progress<double>(value =>
+                SetStatus($"Downloading BeamSplit {update.Latest}... {value:0}%"));
+            var staged = await AppUpdater.DownloadAndStageAsync(update, progress);
+            SetStatus("Download verified. Restarting into the update...");
+            AppUpdater.ApplyAndRestart(staged, update.Latest);
+            Application.Current.Shutdown();
         }
         catch (Exception ex)
         {
-            _state.Log($"Update check skipped: {ex.Message}");
+            _state.Log($"Startup update stopped safely: {ex.Message}");
+            SetStatus("Could not complete the startup update check. Settings can retry it.");
         }
     }
 

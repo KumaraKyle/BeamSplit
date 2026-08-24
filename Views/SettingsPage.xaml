@@ -216,9 +216,9 @@
           </Grid>
           <TextBlock x:Name="LblUpdateStatus" Margin="0,12,0,8" TextWrapping="Wrap"/>
           <ProgressBar x:Name="UpdateProgress" Style="{StaticResource GlowProgress}" Height="8" Value="0" Margin="0,0,0,12"/>
-          <CheckBox x:Name="ChkAutoUpdates" Content="Check for updates quietly when BeamSplit starts"/>
+          <CheckBox x:Name="ChkAutoUpdates" Content="Check for updates whenever BeamSplit starts"/>
           <TextBlock Style="{StaticResource Sub}" Margin="0,0,0,12"
-                     Text="Updates come from the official KumaraKyle/BeamSplit GitHub release and are installed only when GitHub's SHA-256 digest matches the download. Your config and instance folders stay where they are."/>
+                     Text="When an update is available, BeamSplit asks before downloading or restarting. Updates come from the official KumaraKyle/BeamSplit GitHub release and install only when GitHub's SHA-256 digest matches. Your config and instance folders stay where they are."/>
           <StackPanel Orientation="Horizontal">
             <Button x:Name="BtnCheckUpdate" Style="{StaticResource Small}" Content="Check now" Margin="0,0,8,0"/>
             <Button x:Name="BtnInstallUpdate" Style="{StaticResource Primary}" Content="Download and restart" Margin="0,0,8,0" IsEnabled="False"/>

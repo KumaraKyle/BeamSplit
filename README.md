@@ -1,6 +1,6 @@
 # BeamSplit
 
-**Public beta · v1.9.4**
+**Public beta · v1.9.5**
 
 Local splitscreen for **BeamNG.drive** — two to four players on one PC, each on their
 own screen (or their own slice of one), each with their own controller.
@@ -243,6 +243,10 @@ downloads only a release asset named `BeamSplit.exe`, `BeamSplit-portable.zip`, 
 `BeamSplit.zip`, verifies the SHA-256 digest supplied by GitHub, keeps the previous EXE
 as `BeamSplit.exe.previous`, and restarts in place. Config, profiles and instances are
 not replaced.
+
+When automatic checks are enabled, BeamSplit checks on every launch. If a newer verified
+release exists, it asks before downloading and restarting; choosing Later leaves the current
+installation untouched and asks again on the next launch.
 
 The release repository and release must be public for unauthenticated installs. An
 update without GitHub's SHA-256 digest is shown but will not be installed automatically.

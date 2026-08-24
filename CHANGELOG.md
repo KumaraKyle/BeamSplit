@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.5
+
+- Changed automatic update checks from once per 24 hours to every BeamSplit launch.
+- Added an Update now / Later startup prompt. Nothing downloads without confirmation;
+  accepted updates retain SHA-256 verification, rollback copy creation and safe restart.
+
 ## 1.9.4
 
 - Expanded each single-instance vehicle card into a second controller-driven preset grid,
