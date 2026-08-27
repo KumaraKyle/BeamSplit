@@ -316,6 +316,26 @@ public static class SelfTest
             W($"  retile normalizes window style: {(windowStylePass ? "PASS" : "FAIL")}");
             if (!windowStylePass) throw new InvalidOperationException("retile window-style regression");
 
+            var mixedResolutionMonitors = new List<MonitorInfo>
+            {
+                new(@"\\.\DISPLAY1", 0, 0, 1920, 1080, true),
+                new(@"\\.\DISPLAY2", 1920, 0, 3840, 2160, false)
+            };
+            var hdRegion = Tiling.RegionFor(
+                new PlayerSlot { MonitorDevice = mixedResolutionMonitors[0].DeviceName, Split = SplitMode.Full },
+                mixedResolutionMonitors);
+            var uhdRegion = Tiling.RegionFor(
+                new PlayerSlot { MonitorDevice = mixedResolutionMonitors[1].DeviceName, Split = SplitMode.Full },
+                mixedResolutionMonitors);
+            var hdDisplay = GameSettings.DisplayValues(hdRegion);
+            var uhdDisplay = GameSettings.DisplayValues(uhdRegion);
+            var mixedResolutionPass = hdRegion == new Rect(0, 0, 1920, 1080) &&
+                                      uhdRegion == new Rect(1920, 0, 3840, 2160) &&
+                                      hdDisplay["GraphicDisplayResolutions"]?.GetValue<string>() == "1920 1080" &&
+                                      uhdDisplay["GraphicDisplayResolutions"]?.GetValue<string>() == "3840 2160";
+            W($"  mixed monitor resolutions: {(mixedResolutionPass ? "PASS" : "FAIL")} (1080p + 4K profiles)");
+            if (!mixedResolutionPass) throw new InvalidOperationException("mixed monitor resolution regression");
+
             var fakeMonitors = new List<MonitorInfo>
             {
                 new(@"\\.\DISPLAY1", 0, 0, 1920, 1080, true),

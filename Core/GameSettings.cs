@@ -121,13 +121,37 @@ public static class GameSettings
             // background limiter avoids severe inactive-window throttling seen on
             // some driver/renderer combinations; the normal session cap still applies.
             ["fpsLimitBackgroundEnabled"] = false,
-            ["fpsLimitBackground"] = Math.Clamp(cfg.FrameLimit, 30, 240),
-            ["GraphicDisplayModes"] = "Window"
+            ["fpsLimitBackground"] = Math.Clamp(cfg.FrameLimit, 30, 240)
         });
         if (cloudOk && localOk)
-            log?.Report($"  P{i}: windowed, input in background, background throttle off, {Math.Clamp(cfg.FrameLimit, 30, 240)} fps cap");
+            log?.Report($"  P{i}: input in background, background throttle off, {Math.Clamp(cfg.FrameLimit, 30, 240)} fps cap");
         else
             log?.Report($"  P{i}: WARNING - could not verify background input/FPS settings; close BeamNG and check profile write access");
+    }
+
+    /// <summary>
+    /// Gives each multi-instance profile the pixel resolution of its assigned screen
+    /// region. BeamNG persists graphics settings per user profile, so moving the native
+    /// window alone can leave a 4K instance starting with a previous 1080p render size.
+    /// </summary>
+    public static void ApplyDisplay(AppConfig cfg, int i, Rect region, IProgress<string>? log = null)
+    {
+        var values = DisplayValues(region);
+        if (Patch(LocalFile(cfg, i), values))
+            log?.Report($"  P{i}: windowed renderer {region.W}x{region.H} for assigned display region");
+        else
+            log?.Report($"  P{i}: WARNING - could not save assigned {region.W}x{region.H} display resolution");
+    }
+
+    internal static Dictionary<string, JsonNode?> DisplayValues(Rect region)
+    {
+        var width = Math.Max(1, region.W);
+        var height = Math.Max(1, region.H);
+        return new Dictionary<string, JsonNode?>
+        {
+            ["GraphicDisplayModes"] = "Window",
+            ["GraphicDisplayResolutions"] = $"{width} {height}"
+        };
     }
 
     /// <summary>Applies the shared audio mix and output device to one profile.</summary>

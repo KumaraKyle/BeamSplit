@@ -18,6 +18,11 @@ public static class Tiling
         if (mon.DeviceName is null or "")
             mon = monitors.FirstOrDefault(m => m.Primary, monitors.Count > 0 ? monitors[0] : default);
 
+        // Keep headless/startup fallback behaviour usable even if Windows display
+        // enumeration momentarily returns no devices.
+        if (mon.DeviceName is null or "")
+            mon = new MonitorInfo(@"\\.\DISPLAY1", 0, 0, 1920, 1080, true);
+
         return RegionIn(mon, slot.Split, slot.Region);
     }
 

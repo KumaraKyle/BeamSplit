@@ -104,6 +104,11 @@ public sealed class Launcher(AppState state)
             ct.ThrowIfCancellationRequested();
             var cfg = _state.Config;
 
+            var monitors = Native.GetMonitors();
+            var slot = cfg.Players.FirstOrDefault(player => player.Index == i) ??
+                       new PlayerSlot { Index = i };
+            var region = Tiling.RegionFor(slot, monitors);
+            GameSettings.ApplyDisplay(cfg, i, region, log);
             GameSettings.ApplyFocusFixes(cfg, i, log);
             GameSettings.ApplyAudio(cfg, i, log);
             GameSettings.ApplyGraphics(cfg, i, log);
