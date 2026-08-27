@@ -260,7 +260,7 @@ end
 local function enableSplit()
   extensions.load('render_splitScreen')
   setExtensionUnloadMode(extensions.render_splitScreen, 'manual')
-  extensions.render_splitScreen.enable(2, {debug = true})
+  extensions.render_splitScreen.enable(2, {debug = true, audio = 'shared'})
   if not extensions.render_splitScreen.isActive() then error('enable() did not set active') end
 end
 

@@ -99,12 +99,12 @@ beamsplit = {
     local ext = load()
     return ext.isActive() and ext.pickerConfirm(player or 0) or false
   end,
-  -- one listener exists engine-side, so this selects native, shared midpoint, or a player camera
+  -- one listener exists engine-side, so this selects the both-car shared mix, native, or a player camera
   cycleAudio = function()
     local ext = load()
     local cur = ext.getConfig().audio
     local n = ext.getConfig().count or 2
-    local values = {'native', 'center'}
+    local values = {'shared', 'native'}
     for p = 0, n - 1 do values[#values + 1] = p end
     local index = 1
     for i, value in ipairs(values) do if value == cur then index = i end end

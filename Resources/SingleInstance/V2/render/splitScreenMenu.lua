@@ -33,7 +33,7 @@ end
 
 local function cycleAudio(split, dir)
   local cfg = split.getConfig()
-  local values = {'native', 'center'}
+  local values = {'shared', 'native'}
   for p = 0, cfg.count - 1 do values[#values + 1] = p end
   local index = 1
   for i, value in ipairs(values) do if value == cfg.audio then index = i end end
@@ -155,8 +155,8 @@ function M.draw(split)
     local hudLabel = 'Player HUD                     ' .. (cfg.showHud and 'ON' or 'OFF') .. '##hud'
     if focusedButton(hudLabel, base + 2, 348, 42) then M.confirm(split) end
 
-    local audio = cfg.audio == 'native' and 'NATIVE / PLAYER 1'
-      or (cfg.audio == 'center' and 'BETWEEN PLAYERS'
+    local audio = cfg.audio == 'native' and 'PLAYER 1 ONLY'
+      or ((cfg.audio == 'shared' or cfg.audio == 'center') and 'BOTH CARS'
       or (type(cfg.audio) == 'number' and ('PLAYER ' .. (cfg.audio + 1)) or 'NATIVE / PLAYER 1'))
     local audioLabel = 'Audio focus                    <  ' .. audio .. '  >##audio'
     if focusedButton(audioLabel, base + 3, 700, 42) then M.confirm(split) end

@@ -7,6 +7,8 @@
   being frozen behind the global vehicle-change guard.
 - Retained the full renderer fence for ownerless operations such as initial vehicle filling and
   screenshots, and exposed targeted lifecycle state for in-game diagnostics and regression tests.
+- Changed the experimental single-instance audio default to a shared listener positioned between
+  player cameras, keeping both local cars audible while retaining player-specific audio choices.
 
 ## 1.9.5
 

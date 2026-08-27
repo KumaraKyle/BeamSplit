@@ -45,7 +45,9 @@ local function start()
     rects = rects,
     deviceAssignments = assignments,
     showHud = session.hud ~= false,
-    audio = session.audio or 'native'
+    -- A single BeamNG process has one SFX listener. Shared mode keeps it between every
+    -- rendered player camera, which is the only engine-supported way to hear both cars.
+    audio = session.audio or 'shared'
   })
   if not ok then
     log('E', 'beamsplit.launcher', 'automatic split-screen start failed: ' .. tostring(err))

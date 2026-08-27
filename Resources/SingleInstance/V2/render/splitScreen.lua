@@ -35,7 +35,7 @@ local cfg = {
   showTags = true,    -- floating player name tags
   showHud = true,     -- per-tile gauge cluster
   autoSeat = true,    -- move players who are sharing a car into a free one (see reseat)
-  audio = 'native',   -- 'native' | 'center' | player index -- where the single SFX listener sits
+  audio = 'shared',   -- 'shared' | 'native' | player index -- where the single SFX listener sits
   rects = nil,        -- optional launcher-provided normalized {x,y,w,h} rectangles
   deviceAssignments = nil, -- optional launcher-provided {player, device, keyboard} records
   debug = false,      -- log the compositor's inputs once a second (see debugComposite)
@@ -166,7 +166,7 @@ end
 -- is still live behind the tiles (it renders the fullscreen view the overlay covers) and it
 -- tracks player 0 -- which is why, untouched, all sound comes from the first tile's car.
 --
--- So we drive the main camera ourselves. 'center' parks it at the centroid of the players' cars
+-- So we drive the main camera ourselves. 'shared' parks it at the centroid of the players' cameras
 -- so everyone is audible; a player index parks it on that player for correct first-person audio.
 -- This cannot give each tile its own mix -- one listener is a hard engine limit.
 
@@ -187,6 +187,10 @@ local function listenerTarget()
     end
     return nil
   end
+
+  -- "center" was the name used by early BeamSplit builds; keep accepting it so an old
+  -- session manifest or console command upgrades without falling back to player 1.
+  if mode ~= 'shared' and mode ~= 'center' then return nil end
 
   local sum, count, rot = vec3(0, 0, 0), 0, nil
   for _, v in ipairs(views) do

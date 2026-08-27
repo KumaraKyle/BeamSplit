@@ -356,6 +356,7 @@ public static class SelfTest
             var singleLayoutPass = singleLayout.Window == new Rect(0, 0, 4480, 1440) &&
                                    singleLayout.Viewports[1] == new Rect(1920, 0, 2560, 1440) &&
                                    manifestPlayers.GetArrayLength() == 2 &&
+                                   manifest.RootElement.GetProperty("audio").GetString() == "shared" &&
                                    manifestPlayers[0].GetProperty("device").GetString() == "keyboard0" &&
                                    manifestPlayers[1].GetProperty("device").GetString() == "xinput1";
             W($"  single span + manifest: {(singleLayoutPass ? "PASS" : "FAIL")}");
@@ -412,6 +413,7 @@ public static class SelfTest
                               backend.Contains("enforceExclusiveSeats", StringComparison.Ordinal) &&
                               backend.Contains("job.targeted", StringComparison.Ordinal) &&
                               backend.Contains("getLifecycleState", StringComparison.Ordinal) &&
+                              backend.Contains("audio = 'shared'", StringComparison.Ordinal) &&
                               backend.Contains("resetPlayerVehicle", StringComparison.Ordinal) &&
                               picker.Contains("core_vehicles.getModel", StringComparison.Ordinal) &&
                               picker.Contains("info.preview", StringComparison.Ordinal) &&

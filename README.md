@@ -70,7 +70,8 @@ engine shows a final warning and requires explicit confirmation; cancelling retu
 BeamSplit without starting or changing the session.
 
 This mode is offline-only and deliberately version-gated. BeamNG exposes one audio listener,
-so sound remains one shared/native mix rather than one stereo mix per player. It uses camera-context and
+so sound remains one shared mix rather than one stereo mix per player. BeamSplit places that listener
+between the player cameras so both cars are audible. It uses camera-context and
 render-view APIs shipped in newer BeamNG builds but not documented as a stable public
 split-screen interface. If BeamSplit cannot find the required APIs, it leaves the game
 untouched and asks you to use the stable multi-instance engine. The experimental engine

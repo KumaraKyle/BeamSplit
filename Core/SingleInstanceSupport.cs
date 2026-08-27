@@ -103,7 +103,10 @@ public static class SingleInstanceSupport
             engine = "single-instance-experimental",
             windowBounds = new[] { layout.Window.X, layout.Window.Y, layout.Window.W, layout.Window.H },
             hud = true,
-            audio = "native",
+            // BeamNG exposes one SFX listener per process. Put that listener between the
+            // split-screen cameras so both local vehicles feed the shared speaker mix.
+            // "native" follows player 1 and effectively silences player 2 once they separate.
+            audio = "shared",
             camera = "orbit",
             players
         }, new JsonSerializerOptions { WriteIndented = true });
