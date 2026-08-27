@@ -410,6 +410,8 @@ public static class SelfTest
                               backend.Contains("deviceAssignments", StringComparison.Ordinal) &&
                               backend.Contains("configuredRects", StringComparison.Ordinal) &&
                               backend.Contains("enforceExclusiveSeats", StringComparison.Ordinal) &&
+                              backend.Contains("job.targeted", StringComparison.Ordinal) &&
+                              backend.Contains("getLifecycleState", StringComparison.Ordinal) &&
                               backend.Contains("resetPlayerVehicle", StringComparison.Ordinal) &&
                               picker.Contains("core_vehicles.getModel", StringComparison.Ordinal) &&
                               picker.Contains("info.preview", StringComparison.Ordinal) &&

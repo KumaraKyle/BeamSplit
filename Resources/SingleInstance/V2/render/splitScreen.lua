@@ -49,7 +49,7 @@ local taggedCount = nil
 local compositeErrors = 0
 local suspended = false
 local pendingSpawns = 0 -- cars requested but not yet drivable; see spawnCarsForPlayers
-local lifecycle = nil   -- queued renderer-unsafe operation; custom views stay down until settled
+local lifecycle = nil   -- queued renderer-unsafe operation; only the affected view is fenced when possible
 local seatGuard = nil   -- briefly re-check exclusivity after multiseat settles a replacement
 local queueLifecycleOperation
 
@@ -508,17 +508,18 @@ end
 
 -- Renderer lifecycle ---------------------------------------------------------
 --
--- Vehicle spawn/replacement and screenshot capture all rebuild render resources. Keeping the
--- custom camera contexts active through those operations reproducibly crashes BeamNG 0.39 in
--- native code. Detach the contexts, let render-thread work drain, perform the operation, then
--- reconnect them to the same session-long RenderViews. The views must not be recreated here:
+-- Vehicle spawn/replacement and screenshot capture all rebuild render resources. Keeping a
+-- camera context attached to the vehicle being rebuilt reproducibly crashes BeamNG 0.39 in native
+-- code. Isolate the affected context (or all contexts for ownerless work), let queued rendering
+-- drain, perform the operation, then reconnect the same session-long RenderViews. The views must
+-- not be recreated here:
 -- BeamNG backs them with window targets and repeated allocation can produce an extra monitor view.
 
 local function resumeViews()
   if not active then lifecycle = nil; return end
   local job = lifecycle
   local reason = job and job.reason or 'operation'
-  if job and job.hard then
+  if job and job.hard and not job.targeted then
     settings.setValue('multiseat', true)
     assignDevices()
     for player, oldId in pairs(job.seats or {}) do
@@ -531,10 +532,20 @@ local function resumeViews()
       end
     end
   end
-  for _, v in ipairs(views) do createView(v) end
+  if job and job.targeted then
+    local target = views[job.assignPlayer + 1]
+    if target then createView(target) end
+  else
+    for _, v in ipairs(views) do createView(v) end
+  end
   local vp = im.GetMainViewport()
   relayout(vp.Size.x, vp.Size.y)
-  for _, v in ipairs(views) do core_camera.setContextCamera(v.id, 'orbit') end
+  if job and job.targeted then
+    local target = views[job.assignPlayer + 1]
+    if target then core_camera.setContextCamera(target.id, 'orbit') end
+  else
+    for _, v in ipairs(views) do core_camera.setContextCamera(v.id, 'orbit') end
+  end
   rebuildTags()
   -- Claim the picker result first and restore everyone else to a different vehicle. This is more
   -- deterministic than relying on multiseat's least-occupied heuristic during object replacement.
@@ -582,6 +593,12 @@ queueLifecycleOperation = function(reason, operation, waitForVehicles, opts)
     seats = {},
     switched = {},
     assignPlayer = opts.assignPlayer,
+    -- A player-owned vehicle change can isolate only that player's camera and seat. The other
+    -- camera contexts keep driving their session-long RenderViews, so their tiles and controls
+    -- remain live while BeamNG builds the new vehicle. Operations without an owner (initial
+    -- fill, screenshots) retain the conservative full-session fence.
+    targeted = opts.hard == true and opts.assignPlayer ~= nil
+      and views[(opts.assignPlayer or 0) + 1] ~= nil,
     paused = false,
     ran = false,
   }
@@ -604,19 +621,30 @@ local function updateLifecycle(dt)
         if veh then job.seats[v.player] = veh:getID() end
       end
     end
-    -- Leave the named-texture RenderViews allocated for the whole BeamSplit session. Only their
-    -- camera contexts are unsafe while BeamNG is rebuilding a vehicle.
-    for _, v in ipairs(views) do destroyContext(v) end
+    -- Leave the named-texture RenderViews allocated for the whole BeamSplit session. Replacing a
+    -- vehicle invalidates camera state only for the player following that vehicle, so fence that
+    -- context alone. Keeping unrelated contexts alive is what lets the other players continue.
+    if job.targeted then
+      destroyContext(views[job.assignPlayer + 1])
+    else
+      for _, v in ipairs(views) do destroyContext(v) end
+    end
     playerTags.destroy(); taggedCount = nil
     if job.hard then
-      settings.setValue('multiseat', false)
-      restoreDevices()
-      -- Fully detach secondary seats while the vehicle manager destroys/rebuilds objects. Merely
-      -- hiding the views left multiseat callbacks live and could corrupt physics/input state.
-      for p = 1, #views - 1 do be:exitVehicle(p) end
+      if job.targeted then
+        -- Detach only the seat whose object may be replaced. Other players keep their multiseat
+        -- input routes and vehicles; importantly, no global settings/action-map churn occurs.
+        be:exitVehicle(job.assignPlayer)
+      else
+        settings.setValue('multiseat', false)
+        restoreDevices()
+        for p = 1, #views - 1 do be:exitVehicle(p) end
+      end
     end
     job.paused = true
-    log('I', 'beamsplit', job.reason .. ' -- split views paused')
+    log('I', 'beamsplit', job.targeted
+      and (job.reason .. ' -- isolated player ' .. (job.assignPlayer + 1) .. ' view; others remain live')
+      or (job.reason .. ' -- split views paused'))
     return true
   end
 
@@ -1147,6 +1175,15 @@ M.spawnCarsForPlayers = spawnCarsForPlayers
 M.spawnVehicleSafely = spawnVehicleSafely
 M.captureScreenshot = captureScreenshot
 M.isLifecycleBusy = function() return lifecycle ~= nil end
+M.getLifecycleState = function()
+  if not lifecycle then return nil end
+  return {
+    reason = lifecycle.reason,
+    targeted = lifecycle.targeted,
+    assignPlayer = lifecycle.assignPlayer,
+    ran = lifecycle.ran,
+  }
+end
 M.getDrawErrors = function() return compositeErrors end
 M.getConfig = function() return deepcopy(cfg) end
 M.setConfig = function(opts)

@@ -9,6 +9,7 @@ local LOG = 'beamsplit.selftest'
 local t = 0
 local phase = 1
 local results = {}
+local targetedOtherVehicleId
 
 local function note(ok, what, detail)
   results[#results + 1] = {ok = ok, what = what, detail = detail}
@@ -212,6 +213,50 @@ local function verifyDistinctCars()
   log('I', LOG, string.format('player 0 -> vehicle %d, player 1 -> vehicle %d', byPlayer[0], byPlayer[1]))
 end
 
+-- Regression for the vehicle-change freeze: replacing player 1's car must use the targeted
+-- lifecycle fence. Player 0's context, seat and input route stay alive throughout the rebuild.
+local function startTargetedReplacement()
+  local ext = extensions.render_splitScreen
+  local target = getPlayerVehicle(1)
+  local other = getPlayerVehicle(0)
+  if not (target and other) then error('need both player vehicles for targeted replacement') end
+  targetedOtherVehicleId = other:getID()
+  if not ext.replacePlayerVehicle(target:getJBeamFilename(), nil, target, 1) then
+    error('targeted replacement could not be scheduled')
+  end
+  local state = ext.getLifecycleState()
+  if not (state and state.targeted and state.assignPlayer == 1) then
+    error('replacement did not enter player-targeted lifecycle')
+  end
+end
+
+local function verifyUnaffectedPlayerLive()
+  local ext = extensions.render_splitScreen
+  local state = ext.getLifecycleState()
+  if not state then error('targeted lifecycle finished before its isolation could be inspected') end
+  if not state.targeted or state.assignPlayer ~= 1 then error('vehicle change fell back to global fence') end
+  if not core_camera.getContextCameraState('splitScreenP0') then
+    error('unaffected player 0 camera context was detached')
+  end
+  if core_camera.getContextCameraState('splitScreenP1') then
+    error('changing player 1 camera context was not isolated')
+  end
+  local other = getPlayerVehicle(0)
+  if not other or other:getID() ~= targetedOtherVehicleId then
+    error('unaffected player 0 lost or changed vehicle')
+  end
+  if settings.getValue('multiseat') ~= true then error('multiseat input was globally disabled') end
+  log('I', LOG, 'player 0 context/seat/input stayed live during player 1 replacement')
+end
+
+local function verifyTargetedReplacementRestored()
+  local ext = extensions.render_splitScreen
+  if ext.isLifecycleBusy() then error('targeted replacement is still settling') end
+  if not core_camera.getContextCameraState('splitScreenP0') then error('player 0 context missing after replacement') end
+  if not core_camera.getContextCameraState('splitScreenP1') then error('player 1 context was not restored') end
+  verifyDistinctCars()
+end
+
 local function enableSplit()
   extensions.load('render_splitScreen')
   setExtensionUnloadMode(extensions.render_splitScreen, 'manual')
@@ -288,11 +333,14 @@ local phases = {
   {at = 27, what = 'repeat spawn does not add cars',      fn = verifyNoOverSpawn, retryFor = 20},
   {at = 29, what = 'menu opens and closes',               fn = verifyMenu, retryFor = 5},
   {at = 30, what = 'vehicle thumbnails resolve',          fn = verifyThumbnails, retryFor = 10},
-  {at = 26, what = 'screenshot',                     fn = function()
+  {at = 31, what = 'schedule targeted vehicle replacement', fn = startTargetedReplacement},
+  {at = 32, what = 'other player stays live during replacement', fn = verifyUnaffectedPlayerLive, retryFor = 5},
+  {at = 34, what = 'targeted replacement restores changed player', fn = verifyTargetedReplacementRestored, retryFor = 45},
+  {at = 35, what = 'screenshot',                     fn = function()
     if not extensions.render_splitScreen.captureScreenshot() then error('screenshot could not be scheduled') end
   end},
   -- deliberately after the screenshot, which is exactly what switches the imgui layer off
-  {at = 28, what = 'overlay still visible after screenshot', fn = verifyImguiAlive, retryFor = 10},
+  {at = 37, what = 'overlay still visible after screenshot', fn = verifyImguiAlive, retryFor = 10},
   {at = 0, fn = summarise}, -- at=0: fires as soon as every phase before it has settled
   -- end in a normal playable state; an unattended test must not leave a modal picker open
   {at = 2, fn = function() end},
@@ -330,4 +378,3 @@ end
 
 M.onUpdate = onUpdate
 return M
-

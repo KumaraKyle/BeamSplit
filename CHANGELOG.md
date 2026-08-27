@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.6
+
+- Isolated single-instance vehicle changes to the player whose car is being rebuilt. Other
+  players keep their camera contexts, controller assignments and vehicle seats live instead of
+  being frozen behind the global vehicle-change guard.
+- Retained the full renderer fence for ownerless operations such as initial vehicle filling and
+  screenshots, and exposed targeted lifecycle state for in-game diagnostics and regression tests.
+
 ## 1.9.5
 
 - Changed automatic update checks from once per 24 hours to every BeamSplit launch.
