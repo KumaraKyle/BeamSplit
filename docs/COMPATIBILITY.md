@@ -11,6 +11,7 @@ BeamSplit is a public beta. Its self-contained x64 build does not require a sepa
 | Other current BeamNG versions | Expected; BeamMP matching is version-aware |
 | 2 XInput controllers | Primary tested configuration |
 | 3–4 controllers | Supported; wider hardware coverage requested |
+| DirectInput wheels (multi-instance) | GUID-isolated per instance; Logitech G920 support added |
 | One keyboard plus controllers | Limited by Windows focus; not fully isolated |
 | Solo / local BeamMP | Supported |
 | OnlineFix/DRM replacements | Not supported or distributed by BeamSplit |

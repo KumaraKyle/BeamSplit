@@ -19,7 +19,9 @@ namespace BeamSplit.Views;
 /// </summary>
 public partial class ScreensPage : UserControl
 {
-    private const string PadFormat = "BeamSplit.Pad";
+    private const string PadFormat = "BeamSplit.InputDevice";
+    private sealed record InputChoice(int Pad, string? DirectInputGuid, string Name,
+        bool Keyboard, bool Connected);
 
     private readonly AppState _state = AppState.Current;
     private readonly Func<int, Task> _launch;
@@ -71,25 +73,49 @@ public partial class ScreensPage : UserControl
     private void BuildTray()
     {
         Tray.Children.Clear();
-        var pads = 0;
+        var devices = 0;
 
         for (uint i = 0; i < 4; i++)
         {
             var connected = Native.PadConnected(i);
-            if (!connected && !UsedPads().Contains((int)i)) continue;
-            pads++;
-            Tray.Children.Add(MakeChip((int)i, connected, draggable: true));
+            if (!connected && !_state.Config.Players.Any(p =>
+                    p.Pad == (int)i && !p.Keyboard && string.IsNullOrWhiteSpace(p.DirectInputGuid))) continue;
+            devices++;
+            Tray.Children.Add(MakeChip(new InputChoice((int)i, null, $"Xbox / XInput pad {i}",
+                false, connected), draggable: true));
+        }
+
+        // DirectInput is a separate device namespace and includes wheels such as the
+        // Logitech G920. Use stable GUIDs rather than its volatile enumeration index.
+        var liveDirect = NativeAssets.ListDirectInputPads();
+        var direct = liveDirect
+            .Concat(_state.Config.KnownPads
+                .Where(cached => liveDirect.All(live => !live.Guid.Equals(
+                    cached.Guid, StringComparison.OrdinalIgnoreCase)))
+                .Select(p => (p.Index, p.Guid, p.Name)))
+            .ToList();
+        foreach (var device in direct)
+        {
+            // Xbox devices are already represented by their real XInput slot above.
+            // Showing the DirectInput compatibility facade as another pad is both
+            // confusing and unsafe because it cannot be mapped back to XInput indexes.
+            if (LooksLikeXInput(device.Name)) continue;
+            devices++;
+            Tray.Children.Add(MakeChip(new InputChoice(-1, device.Guid, device.Name,
+                false, liveDirect.Any(p =>
+                    p.Guid.Equals(device.Guid, StringComparison.OrdinalIgnoreCase))), draggable: true));
         }
 
         // Keyboard and mouse is always available as a player - it needs no detection,
         // and its instance simply gets no controller at all.
-        Tray.Children.Add(MakeChip(KeyboardPad, connected: true, draggable: true));
+        Tray.Children.Add(MakeChip(new InputChoice(KeyboardPad, null, "Keyboard & mouse",
+            true, true), draggable: true));
 
-        if (pads == 0)
+        if (devices == 0)
         {
             Tray.Children.Add(new TextBlock
             {
-                Text = "No controllers detected - wake them and press Rescan.",
+                Text = "No controllers or wheels detected - wake them and press Rescan.",
                 Foreground = (Brush)FindResource("Muted"),
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -98,11 +124,17 @@ public partial class ScreensPage : UserControl
         }
     }
 
-    private HashSet<int> UsedPads() => _state.Config.Players.Where(p => p.Pad >= 0 && !p.Keyboard).Select(p => p.Pad).ToHashSet();
+    private static bool LooksLikeXInput(string name) =>
+        name.Contains("Xbox", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("XInput", StringComparison.OrdinalIgnoreCase) ||
+        name.Contains("X-Box", StringComparison.OrdinalIgnoreCase);
 
-    private Border MakeChip(int pad, bool connected, bool draggable)
+    private bool IsUsed(InputChoice input) => _state.Config.Players.Any(p => SameInput(p, input));
+
+    private Border MakeChip(InputChoice input, bool draggable)
     {
-        var used = UsedPads().Contains(pad);
+        var used = IsUsed(input);
+        var connected = input.Connected;
 
         var chip = new Border
         {
@@ -113,15 +145,15 @@ public partial class ScreensPage : UserControl
             Padding = new Thickness(12, 8, 12, 8),
             Margin = new Thickness(0, 0, 8, 0),
             Cursor = Cursors.Hand,
-            Tag = pad,
+            Tag = input,
             Opacity = connected ? 1 : 0.5
         };
 
-        var isKeyboard = pad == KeyboardPad;
+        var isKeyboard = input.Keyboard;
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(new TextBlock
         {
-            Text = isKeyboard ? "\uE765" : "\uE7FC",   // keyboard : gamepad
+            Text = isKeyboard ? "\uE765" : "\uE7FC",   // keyboard : controller/wheel
             FontFamily = new FontFamily("Segoe MDL2 Assets"),
             FontSize = 15,
             Foreground = (Brush)FindResource(connected ? "Accent" : "Faint"),
@@ -130,7 +162,7 @@ public partial class ScreensPage : UserControl
         });
         row.Children.Add(new TextBlock
         {
-            Text = isKeyboard ? "Keyboard & mouse" : $"Pad {pad}" + (connected ? "" : "  (off)"),
+            Text = input.Name + (connected ? "" : "  (off)"),
             FontSize = 12.5,
             VerticalAlignment = VerticalAlignment.Center
         });
@@ -143,7 +175,7 @@ public partial class ScreensPage : UserControl
             chip.MouseLeftButtonDown += (s, e) =>
             {
                 if (e.ClickCount != 1) return;
-                DragDrop.DoDragDrop(chip, new DataObject(PadFormat, pad), DragDropEffects.Move);
+                DragDrop.DoDragDrop(chip, new DataObject(PadFormat, input), DragDropEffects.Move);
             };
         }
         return chip;
@@ -171,7 +203,7 @@ public partial class ScreensPage : UserControl
     {
         foreach (var child in Tray.Children.OfType<Border>())
         {
-            if ((int?)child.Tag != pad) continue;
+            if (child.Tag is not InputChoice input || input.Pad != pad || input.DirectInputGuid is not null) continue;
             var anim = new DoubleAnimation(1, 0.25, TimeSpan.FromMilliseconds(180))
             {
                 AutoReverse = true,
@@ -348,7 +380,9 @@ public partial class ScreensPage : UserControl
             });
             content.Children.Add(new TextBlock
             {
-                Text = slot.Keyboard ? "keyboard & mouse" : slot.Pad >= 0 ? $"pad {slot.Pad}" : "no pad",
+                Text = slot.Keyboard ? "keyboard & mouse"
+                    : !string.IsNullOrWhiteSpace(slot.DirectInputGuid) ? slot.DirectInputName ?? "DirectInput device"
+                    : slot.Pad >= 0 ? $"XInput pad {slot.Pad}" : "no input",
                 FontSize = 10.5,
                 Foreground = (Brush)FindResource("Muted"),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -367,6 +401,8 @@ public partial class ScreensPage : UserControl
             };
             remove.Click += async (_, _) =>
             {
+                slot.DirectInputGuid = null;
+                slot.DirectInputName = null;
                 InputSetup.SetPad(_state.Config, slot.Index, -1);
                 _state.Config.Players.Remove(slot);
                 Reindex();
@@ -379,8 +415,8 @@ public partial class ScreensPage : UserControl
             // allow dragging an assignment to another region
             cell.MouseLeftButtonDown += (s, e) =>
             {
-                if (e.ClickCount != 1 || slot.Pad < 0) return;
-                DragDrop.DoDragDrop(cell, new DataObject(PadFormat, slot.Pad), DragDropEffects.Move);
+                if (e.ClickCount != 1 || slot.Pad < 0 && string.IsNullOrWhiteSpace(slot.DirectInputGuid)) return;
+                DragDrop.DoDragDrop(cell, new DataObject(PadFormat, ChoiceFor(slot)), DragDropEffects.Move);
             };
         }
         cell.Child = content;
@@ -404,9 +440,9 @@ public partial class ScreensPage : UserControl
         cell.Drop += async (_, e) =>
         {
             if (!e.Data.GetDataPresent(PadFormat)) return;
-            var pad = (int)e.Data.GetData(PadFormat)!;
+            var input = (InputChoice)e.Data.GetData(PadFormat)!;
             e.Handled = true;
-            await AssignAsync(mon, split, region, pad);
+            await AssignAsync(mon, split, region, input);
         };
 
         return cell;
@@ -435,15 +471,15 @@ public partial class ScreensPage : UserControl
         await _retile();
     }
 
-    private async Task AssignAsync(MonitorInfo mon, SplitMode split, int region, int pad)
+    private async Task AssignAsync(MonitorInfo mon, SplitMode split, int region, InputChoice input)
     {
         var players = _state.Config.Players;
-        var keyboard = pad == KeyboardPad;
+        var keyboard = input.Keyboard;
         var target = players.FirstOrDefault(p =>
             p.MonitorDevice == mon.DeviceName && p.Region == region && p.Split == split);
 
         // a device can only drive one instance
-        var displaced = players.Where(p => p != target && p.Pad == pad && p.Keyboard == keyboard).ToList();
+        var displaced = players.Where(p => p != target && SameInput(p, input)).ToList();
         if (keyboard) displaced.AddRange(players.Where(p => p != target && p.Keyboard && !displaced.Contains(p)));
         foreach (var old in displaced)
         {
@@ -451,7 +487,13 @@ public partial class ScreensPage : UserControl
             players.Remove(old);
         }
 
-        if (target != null) { target.Pad = pad; target.Keyboard = keyboard; }
+        if (target != null)
+        {
+            target.Pad = input.Pad;
+            target.Keyboard = keyboard;
+            target.DirectInputGuid = input.DirectInputGuid;
+            target.DirectInputName = input.DirectInputGuid is null ? null : input.Name;
+        }
         else
         {
             target = new PlayerSlot
@@ -460,8 +502,10 @@ public partial class ScreensPage : UserControl
                 MonitorDevice = mon.DeviceName,
                 Split = split,
                 Region = region,
-                Pad = pad,
-                Keyboard = keyboard
+                Pad = input.Pad,
+                Keyboard = keyboard,
+                DirectInputGuid = input.DirectInputGuid,
+                DirectInputName = input.DirectInputGuid is null ? null : input.Name
             };
             players.Add(target);
         }
@@ -469,11 +513,28 @@ public partial class ScreensPage : UserControl
         Reindex();
         _state.Save();
         Rebuild();
-        var live = InputSetup.SetPad(_state.Config, target.Index, pad);
-        _state.Log($"P{target.Index}: {(keyboard ? "keyboard & mouse" : $"pad {pad}")} on {mon.DeviceName.Replace(@"\\.\", "")}" +
+        var live = input.DirectInputGuid is null
+            ? InputSetup.SetPad(_state.Config, target.Index, input.Pad)
+            : InputSetup.SetDirectInput(_state.Config, target.Index);
+        _state.Log($"P{target.Index}: {input.Name} on {mon.DeviceName.Replace(@"\\.\", "")}" +
                    (live ? " (applied live)" : " (saved; relaunch needed for this older session)"));
         await _retile();
     }
+
+    private static bool SameInput(PlayerSlot slot, InputChoice input)
+    {
+        if (input.Keyboard) return slot.Keyboard;
+        if (!string.IsNullOrWhiteSpace(input.DirectInputGuid))
+            return string.Equals(slot.DirectInputGuid?.Trim().Trim('{', '}'),
+                input.DirectInputGuid.Trim().Trim('{', '}'), StringComparison.OrdinalIgnoreCase);
+        return !slot.Keyboard && string.IsNullOrWhiteSpace(slot.DirectInputGuid) && slot.Pad == input.Pad;
+    }
+
+    private static InputChoice ChoiceFor(PlayerSlot slot) => slot.Keyboard
+        ? new InputChoice(KeyboardPad, null, "Keyboard & mouse", true, true)
+        : !string.IsNullOrWhiteSpace(slot.DirectInputGuid)
+            ? new InputChoice(-1, slot.DirectInputGuid, slot.DirectInputName ?? "DirectInput device", false, true)
+            : new InputChoice(slot.Pad, null, $"Xbox / XInput pad {slot.Pad}", false, true);
 
     /// <summary>
     /// Instance numbering follows the same DISPLAY1, DISPLAY2, DISPLAY3 order shown by

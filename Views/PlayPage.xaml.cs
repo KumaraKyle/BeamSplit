@@ -181,7 +181,8 @@ public partial class PlayPage : UserControl
                 cfg.Players.Add(new PlayerSlot
                 {
                     Index = i, MonitorDevice = primary.DeviceName, Split = split, Region = i,
-                    Pad = old?.Pad ?? i, Keyboard = old?.Keyboard ?? false
+                    Pad = old?.Pad ?? i, Keyboard = old?.Keyboard ?? false,
+                    DirectInputGuid = old?.DirectInputGuid, DirectInputName = old?.DirectInputName
                 });
             }
         }
@@ -197,6 +198,8 @@ public partial class PlayPage : UserControl
             if (!previous.TryGetValue(slot.Index, out var old)) continue;
             slot.Pad = old.Pad;
             slot.Keyboard = old.Keyboard;
+            slot.DirectInputGuid = old.DirectInputGuid;
+            slot.DirectInputName = old.DirectInputName;
         }
     }
 
@@ -258,7 +261,7 @@ public partial class PlayPage : UserControl
     {
         if (cfg.Players.Count == 0) return "No players assigned yet.";
         return string.Join("  ·  ", cfg.Players.OrderBy(p => p.Index).Select(p =>
-            $"P{p.Index + 1}: {(p.Keyboard ? "keyboard" : p.Pad >= 0 ? $"pad {p.Pad}" : "no input")}"));
+            $"P{p.Index + 1}: {(p.Keyboard ? "keyboard" : !string.IsNullOrWhiteSpace(p.DirectInputGuid) ? p.DirectInputName ?? "wheel" : p.Pad >= 0 ? $"pad {p.Pad}" : "no input")}"));
     }
 
     private static string LayoutSummary(AppConfig cfg)

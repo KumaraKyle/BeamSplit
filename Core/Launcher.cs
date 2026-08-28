@@ -270,41 +270,26 @@ public sealed class Launcher(AppState state)
 
     private static void StopPreviousInstanceProcesses(AppConfig cfg, IProgress<string>? log)
     {
-        var root = Path.GetFullPath(cfg.InstancesDir)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-        var stopped = 0;
-
-        foreach (var name in new[] { "BeamMP-Launcher", "BeamNG.drive", "BeamNG.drive.x64" })
-        {
-            foreach (var process in Process.GetProcessesByName(name))
-            {
-                try
-                {
-                    var path = process.MainModule?.FileName;
-                    if (string.IsNullOrWhiteSpace(path) ||
-                        !Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    process.Kill(true);
-                    process.WaitForExit(3000);
-                    stopped++;
-                }
-                catch { }
-                finally { process.Dispose(); }
-            }
-        }
-
-        if (stopped > 0)
-            log?.Report($"Stopped {stopped} process(es) from the previous BeamSplit session.");
+        StopOwnedProcesses(cfg.InstancesDir, log, "previous BeamSplit session");
     }
 
     private static void StopInstanceProcesses(AppConfig cfg, int instance, IProgress<string>? log)
     {
-        var root = Path.GetFullPath(Instances.InstanceDir(cfg, instance))
+        StopOwnedProcesses(Instances.InstanceDir(cfg, instance), log, $"P{instance}");
+    }
+
+    /// <summary>
+    /// BeamNG writes bindings and settings during an orderly shutdown. Killing it was
+    /// the reason edits made in an instance appeared to save at random. Ask every owned
+    /// game window to close first, wait once for the group, then force only stragglers.
+    /// Launchers do not own profile state and can stop immediately.
+    /// </summary>
+    private static void StopOwnedProcesses(string ownedDirectory, IProgress<string>? log, string label)
+    {
+        var root = Path.GetFullPath(ownedDirectory)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
-        var stopped = 0;
+        var owned = new List<Process>();
         foreach (var name in new[] { "BeamMP-Launcher", "BeamNG.drive", "BeamNG.drive.x64" })
         {
             foreach (var process in Process.GetProcessesByName(name))
@@ -312,18 +297,39 @@ public sealed class Launcher(AppState state)
                 try
                 {
                     var path = process.MainModule?.FileName;
-                    if (string.IsNullOrWhiteSpace(path) ||
-                        !Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    process.Kill(true);
-                    process.WaitForExit(3000);
-                    stopped++;
+                    if (!string.IsNullOrWhiteSpace(path) &&
+                        Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                        owned.Add(process);
+                    else process.Dispose();
                 }
-                catch { }
-                finally { process.Dispose(); }
+                catch { process.Dispose(); }
             }
         }
-        if (stopped > 0) log?.Report($"  P{instance}: cleared {stopped} leftover process(es)");
+        if (owned.Count == 0) return;
+
+        var games = owned.Where(p => p.ProcessName.StartsWith("BeamNG", StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var process in owned.Except(games))
+            try { process.Kill(true); } catch { }
+        foreach (var process in games)
+            try { process.CloseMainWindow(); } catch { }
+
+        var deadline = DateTime.UtcNow.AddSeconds(8);
+        while (games.Any(p => { try { return !p.HasExited; } catch { return false; } }) && DateTime.UtcNow < deadline)
+            Thread.Sleep(100);
+
+        var forced = 0;
+        foreach (var process in games)
+        {
+            try
+            {
+                if (!process.HasExited) { process.Kill(true); forced++; }
+            }
+            catch { }
+        }
+        foreach (var process in owned) process.Dispose();
+        log?.Report(forced == 0
+            ? $"Stopped {owned.Count} process(es) from {label}; BeamNG saved its profile."
+            : $"Stopped {owned.Count} process(es) from {label}; forced {forced} unresponsive game(s) after the save timeout.");
     }
 
     private static void ResetLauncherLog(AppConfig cfg, int i)
@@ -617,6 +623,9 @@ public sealed class Launcher(AppState state)
         var cfg = _state.Config;
         if (cfg.Players.Count != 2)
             throw new InvalidOperationException("Single-instance mode currently supports exactly two players.");
+        if (cfg.Players.Any(p => !string.IsNullOrWhiteSpace(p.DirectInputGuid)))
+            throw new InvalidOperationException(
+                "DirectInput wheels are currently supported only by Multi-instance mode. Switch the session engine and launch again.");
         if (cfg.Players.Any(p => !p.Keyboard && p.Pad < 0))
             throw new InvalidOperationException("Assign a keyboard or controller to both players before launching.");
 
@@ -684,16 +693,8 @@ public sealed class Launcher(AppState state)
 
     public void StopSession(IProgress<string>? log = null)
     {
-        foreach (var name in new[] { "BeamMP-Launcher", "BeamNG.drive", "BeamNG.drive.x64" })
-        {
-            foreach (var p in Process.GetProcessesByName(name))
-            {
-                try { p.Kill(true); } catch { }
-                finally { p.Dispose(); }
-            }
-        }
+        StopOwnedProcesses(_state.Config.InstancesDir, log, "BeamSplit session");
         DisposeTrackedProcesses();
-        log?.Report("Stopped all instances and launchers.");
     }
 
     private void DisposeTrackedProcesses()

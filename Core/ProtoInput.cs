@@ -82,7 +82,9 @@ public static class ProtoInput
                 // (disabled). That keeps a live handle available if the user assigns
                 // a pad later; previously that transition could only work after a
                 // full relaunch because keyboard instances were never injected.
-                var controller = slot.Keyboard || slot.Pad < 0 ? 0u : (uint)slot.Pad + 1;
+                var controller = slot.Keyboard || slot.Pad < 0 ||
+                                 !string.IsNullOrWhiteSpace(slot.DirectInputGuid)
+                    ? 0u : (uint)slot.Pad + 1;
                 _controller!(handle, controller, 0, 0, 0);
                 _hook!(handle, Hook.XInput);
                 _hook!(handle, Hook.Focus);

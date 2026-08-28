@@ -96,7 +96,9 @@ BeamSplit receives no payment details and does not track whether somebody contri
 
 Proto Input gives every controller instance a private XInput slot and simulated focus.
 You can click a game, use its menus, and move focus between windows without the pads
-merging. The older XInput proxy and devreorder remain deployed as fallback layers.
+merging. In multi-instance mode, DirectInput wheels are assigned by stable device GUID;
+devreorder exposes the selected wheel only to its player while Xbox instances receive
+their private XInput slot. The older XInput proxy remains deployed as a fallback layer.
 
 Controller-per-instance is the supported reliable arrangement. A keyboard player still
 uses Windows' normal focused-keyboard path; BeamSplit does not yet split one keyboard

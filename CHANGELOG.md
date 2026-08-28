@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.7
+
+- Added multi-instance DirectInput wheel assignment and GUID-based isolation. Wheels such as the
+  Logitech G920 now appear on Screens and are exposed only to their assigned instance, without
+  shifting Xbox/XInput routing when devices are connected or removed.
+- Changed BeamSplit session shutdown to close BeamNG cleanly and allow per-instance settings and
+  control bindings to flush before force-stopping an unresponsive process.
+- Changed the experimental single-instance audio default to a shared listener positioned between
+  player cameras, keeping both local cars audible while retaining player-specific audio choices.
+
 ## 1.9.6
 
 - Isolated single-instance vehicle changes to the player whose car is being rebuilt. Other
@@ -7,8 +17,6 @@
   being frozen behind the global vehicle-change guard.
 - Retained the full renderer fence for ownerless operations such as initial vehicle filling and
   screenshots, and exposed targeted lifecycle state for in-game diagnostics and regression tests.
-- Changed the experimental single-instance audio default to a shared listener positioned between
-  player cameras, keeping both local cars audible while retaining player-specific audio choices.
 
 ## 1.9.5
 

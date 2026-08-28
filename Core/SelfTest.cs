@@ -54,6 +54,28 @@ public static class SelfTest
                 W($"  clone roots   : {(rootMatch ? "PASS" : "FAIL")} (moved-install detection)");
                 if (!rootMatch) throw new InvalidOperationException("instance source-root regression");
 
+                var directDevices = new List<(int Index, string Guid, string Name)>
+                {
+                    (0, "11111111-1111-1111-1111-111111111111", "G920 Driving Force Racing Wheel"),
+                    (1, "22222222-2222-2222-2222-222222222222", "Controller (Xbox One For Windows)")
+                };
+                var wheelIni = InputSetup.BuildDevreorderConfig(0, new PlayerSlot
+                {
+                    Pad = -1,
+                    DirectInputGuid = directDevices[0].Guid,
+                    DirectInputName = directDevices[0].Name
+                }, directDevices).ToString();
+                var xinputIni = InputSetup.BuildDevreorderConfig(1,
+                    new PlayerSlot { Pad = 0 }, directDevices).ToString();
+                var wheelRouting = wheelIni.Contains($"[order]\r\n{{{directDevices[0].Guid}}}", StringComparison.Ordinal) &&
+                                   !wheelIni[(wheelIni.IndexOf("[hidden]", StringComparison.Ordinal))..]
+                                       .Contains(directDevices[0].Guid, StringComparison.OrdinalIgnoreCase) &&
+                                   wheelIni.Contains(directDevices[1].Guid, StringComparison.OrdinalIgnoreCase) &&
+                                   xinputIni.Contains(directDevices[0].Guid, StringComparison.OrdinalIgnoreCase) &&
+                                   xinputIni.Contains(directDevices[1].Guid, StringComparison.OrdinalIgnoreCase);
+                W($"  wheel routing : {(wheelRouting ? "PASS" : "FAIL")} (DirectInput GUID isolated from XInput slots)");
+                if (!wheelRouting) throw new InvalidOperationException("DirectInput wheel routing regression");
+
                 var normalGraphicsFile = Path.Combine(safetyProbe, "normal-settings.json");
                 var singleGraphicsFile = Path.Combine(safetyProbe, "single-settings.json");
                 await File.WriteAllTextAsync(normalGraphicsFile, """

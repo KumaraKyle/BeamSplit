@@ -28,6 +28,11 @@ public sealed class PlayerSlot
     public int Region { get; set; }                // 0-based region within the split
     public int Pad { get; set; } = -1;             // physical XInput index, -1 = none
     public bool Keyboard { get; set; }
+    // Wheels and older pads use DirectInput rather than XInput. Keep their stable
+    // instance GUID separately: DirectInput enumeration indexes are unrelated to
+    // XInput's 0..3 slots and change when another device is connected.
+    public string? DirectInputGuid { get; set; }
+    public string? DirectInputName { get; set; }
 }
 
 /// <summary>A DirectInput controller we've seen before, so it can be hidden even when asleep.</summary>
